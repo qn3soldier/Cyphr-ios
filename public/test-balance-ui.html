@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance UI Test</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .balance-item { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .asset-code { font-weight: bold; color: #333; }
+        .balance { font-size: 1.2em; color: #0066cc; }
+        .total { background: #e3f2fd; border: 2px solid #2196F3; font-size: 1.3em; font-weight: bold; }
+        .error { background: #ffebee; color: #c62828; border: 1px solid #ef5350; }
+        .loading { color: #666; font-style: italic; }
+        button { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #1976D2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Stellar Wallet Balance Test</h1>
+        <p>Testing real balance display for funded testnet account</p>
+        
+        <button onclick="testDirectAPI()">Test Direct Horizon API</button>
+        <button onclick="testStellarService()">Test StellarServiceEnhanced</button>
+        <button onclick="clearResults()">Clear</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script type="module">
+        const testAddress = 'GDIXCJBCIM7NN64ZF24XIT2GUCGLOACNBUONEQO4TX36EZ4H3GXN2D3G';
+        const results = document.getElementById('results');
+
+        window.testDirectAPI = async function() {
+            results.innerHTML = '<div class="loading">🔄 Loading direct API...</div>';
+            
+            try {
+                const response = await fetch(`https://horizon-testnet.stellar.org/accounts/${testAddress}`);
+                const data = await response.json();
+                
+                let html = '<h3>💰 Direct Horizon API Results:</h3>';
+                
+                data.balances.forEach(balance => {
+                    const assetCode = balance.asset_type === 'native' ? 'XLM' : balance.asset_code;
+                    html += `<div class="balance-item">
+                        <div class="asset-code">${assetCode}</div>
+                        <div class="balance">${balance.balance}</div>
+                    </div>`;
+                });
+                
+                // Calculate total
+                const xlmBalance = parseFloat(data.balances.find(b => b.asset_type === 'native')?.balance || '0');
+                const usdcBalance = parseFloat(data.balances.find(b => b.asset_code === 'USDC')?.balance || '0');
+                const totalUSD = (xlmBalance * 0.10) + (usdcBalance * 1.00);
+                
+                html += `<div class="balance-item total">
+                    <div class="asset-code">TOTAL USD</div>
+                    <div class="balance">$${totalUSD.toFixed(2)}</div>
+                </div>`;
+                
+                results.innerHTML = html;
+                
+            } catch (error) {
+                results.innerHTML = `<div class="error">❌ API Error: ${error.message}</div>`;
+            }
+        };
+
+        window.testStellarService = async function() {
+            results.innerHTML = '<div class="loading">🔄 Loading via StellarServiceEnhanced...</div>';
+            
+            try {
+                // This would need to be loaded via the app's module system
+                results.innerHTML = '<div class="error">⚠️ StellarServiceEnhanced requires full app context - test via main wallet UI</div>';
+            } catch (error) {
+                results.innerHTML = `<div class="error">❌ Service Error: ${error.message}</div>`;
+            }
+        };
+
+        window.clearResults = function() {
+            results.innerHTML = '';
+        };
+
+        // Auto-run direct API test
+        setTimeout(() => {
+            testDirectAPI();
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet Fixed Test</title>
+</head>
+<body>
+    <h1>Testing Fixed Wallet</h1>
+    <div id="results">Loading...</div>
+    
+    <script type="module">
+        try {
+            console.log('🧪 Testing fixed HDWallet import...');
+            
+            // Test HDWallet import after fixing circular dependency
+            const HDWalletModule = await import('/src/api/crypto/hdWallet.ts');
+            const HDWallet = HDWalletModule.default;
+            
+            console.log('✅ HDWallet imported:', HDWallet);
+            console.log('🔍 isWalletSetup method:', typeof HDWallet?.isWalletSetup);
+            
+            if (HDWallet && typeof HDWallet.isWalletSetup === 'function') {
+                const result = HDWallet.isWalletSetup();
+                console.log('📊 isWalletSetup result:', result);
+                
+                document.getElementById('results').innerHTML = `
+                    <p>✅ HDWallet imported successfully</p>
+                    <p>✅ isWalletSetup method available</p>
+                    <p>📊 Wallet setup status: ${result}</p>
+                    <p>🎉 Import issue fixed!</p>
+                `;
+            } else {
+                throw new Error('isWalletSetup method not available');
+            }
+            
+        } catch (error) {
+            console.error('❌ Still broken:', error);
+            document.getElementById('results').innerHTML = `
+                <p>❌ Still broken: ${error.message}</p>
+                <pre>${error.stack}</pre>
+            `;
+        }
+    </script>
+</body>
+</html>

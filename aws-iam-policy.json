@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "s3:*",
+        "cloudfront:*",
+        "acm:*",
+        "route53:*",
+        "iam:CreateRole",
+        "iam:AttachRolePolicy",
+        "iam:PassRole",
+        "iam:GetRole",
+        "iam:GetInstanceProfile",
+        "iam:CreateInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "elasticloadbalancing:*",
+        "autoscaling:*",
+        "cloudwatch:*",
+        "logs:*",
+        "ssm:*",
+        "secretsmanager:*",
+        "kms:*",
+        "waf:*",
+        "wafv2:*",
+        "shield:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

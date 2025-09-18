@@ -1,0 +1,21 @@
+{
+  "tables": [
+    "users",
+    "phone_hashes",
+    "calls",
+    "nearby_discovery",
+    "discovery_tokens",
+    "chats",
+    "message_status",
+    "transactions",
+    "messages",
+    "waitlist",
+    "waitlist_stats",
+    "device_registrations",
+    "user_wallets",
+    "chat_participants"
+  ],
+  "exported_at": "2025-08-29T23:06:03.481Z",
+  "supabase_url": "https://fkhwhplufjzlicccgbrf.supabase.co",
+  "total_tables": 14
+}

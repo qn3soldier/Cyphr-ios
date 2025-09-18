@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cyphr Messenger WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Cyphr Messenger Real-time Messaging Test</h1>
+    
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+    
+    <br>
+    <input type="text" id="messageInput" placeholder="Type a message..." style="width: 300px;">
+    <button onclick="sendMessage()">Send Message</button>
+    
+    <br><br>
+    <button onclick="authenticate()">Authenticate</button>
+    <button onclick="joinChat()">Join Chat</button>
+    <button onclick="disconnect()">Disconnect</button>
+
+    <script>
+        const socket = io('https://app.cyphrmessenger.app', {
+            transports: ['websocket', 'polling']
+        });
+        
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        function addMessage(msg) {
+            const div = document.createElement('div');
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Connection events
+        socket.on('connect', () => {
+            statusDiv.innerHTML = '<span style="color: green;">✅ Connected to Cyphr Messenger</span>';
+            addMessage('Connected to server');
+        });
+        
+        socket.on('disconnect', () => {
+            statusDiv.innerHTML = '<span style="color: red;">❌ Disconnected</span>';
+            addMessage('Disconnected from server');
+        });
+        
+        socket.on('connect_error', (error) => {
+            statusDiv.innerHTML = '<span style="color: red;">❌ Connection Error</span>';
+            addMessage('Connection error: ' + error.message);
+        });
+        
+        // Authentication events
+        socket.on('authenticated', (data) => {
+            addMessage('✅ Authenticated successfully: ' + JSON.stringify(data));
+        });
+        
+        socket.on('auth_error', (error) => {
+            addMessage('❌ Auth error: ' + error);
+        });
+        
+        // Message events
+        socket.on('new_message', (data) => {
+            addMessage('📩 New message: ' + JSON.stringify(data));
+        });
+        
+        socket.on('message_sent', (data) => {
+            addMessage('✅ Message sent: ' + JSON.stringify(data));
+        });
+        
+        socket.on('message_error', (error) => {
+            addMessage('❌ Message error: ' + JSON.stringify(error));
+        });
+        
+        // Typing events
+        socket.on('typing_start', (data) => {
+            addMessage('✏️ User typing: ' + data.userId);
+        });
+        
+        socket.on('typing_stop', (data) => {
+            addMessage('⏹️ User stopped typing: ' + data.userId);
+        });
+        
+        // User status events
+        socket.on('user_online', (data) => {
+            addMessage('🟢 User online: ' + data.userId);
+        });
+        
+        socket.on('user_offline', (data) => {
+            addMessage('🔴 User offline: ' + data.userId);
+        });
+        
+        // Test functions
+        function authenticate() {
+            socket.emit('authenticate', {
+                userId: 'test-user-123',
+                publicKey: 'test-public-key'
+            });
+        }
+        
+        function joinChat() {
+            socket.emit('join_chat', {
+                chatId: 'test-chat-456'
+            });
+            addMessage('📞 Attempting to join chat: test-chat-456');
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                socket.emit('send_message', {
+                    chatId: 'test-chat-456',
+                    message: {
+                        content: message,
+                        type: 'text'
+                    },
+                    tempId: 'temp-' + Date.now()
+                });
+                
+                addMessage('📤 Sending: ' + message);
+                input.value = '';
+            }
+        }
+        
+        function disconnect() {
+            socket.disconnect();
+        }
+        
+        // Enter key to send message
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Ping/Pong test
+        socket.on('pong', (data) => {
+            addMessage('🏓 Pong received: ' + JSON.stringify(data));
+        });
+        
+        // Send ping every 30 seconds
+        setInterval(() => {
+            if (socket.connected) {
+                socket.emit('ping', { timestamp: Date.now() });
+                addMessage('🏓 Ping sent');
+            }
+        }, 30000);
+        
+    </script>
+</body>
+</html>

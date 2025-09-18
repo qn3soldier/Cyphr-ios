@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet Debug Test</title>
+</head>
+<body>
+    <h1>Wallet Debug Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        console.log('🧪 Starting wallet debug test...');
+        
+        // Test localStorage access
+        try {
+            localStorage.setItem('test', 'value');
+            localStorage.removeItem('test');
+            console.log('✅ localStorage works');
+        } catch (e) {
+            console.error('❌ localStorage error:', e);
+        }
+        
+        // Check if wallet data exists
+        const walletData = localStorage.getItem('cypher_encrypted_wallet');
+        console.log('🔍 Wallet data in localStorage:', walletData ? 'EXISTS' : 'NOT_FOUND');
+        
+        // Test import paths
+        console.log('🔍 Testing module imports...');
+        
+        document.getElementById('results').innerHTML = `
+            <p>localStorage test: ${localStorage ? 'WORKS' : 'FAILED'}</p>
+            <p>Wallet data: ${walletData ? 'EXISTS' : 'NOT_FOUND'}</p>
+            <p>Console: Check browser console for detailed logs</p>
+        `;
+    </script>
+</body>
+</html>

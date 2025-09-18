@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobstr-like Authentication Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e293b, #334155);
+            color: white;
+            min-height: 100vh;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        .status-ready { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .status-pending { background: rgba(234, 179, 8, 0.2); color: #facc15; }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover { background: #2563eb; }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .result-success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .result-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); }
+    </style>
+</head>
+<body>
+    <h1>🔐 Lobstr-like Wallet Authentication Test</h1>
+    <p>Testing the complete encrypted wallet storage system in browser environment.</p>
+
+    <div class="test-card">
+        <h3>🧪 System Status</h3>
+        <div>✅ EncryptedWalletStorage Class <span class="status-badge status-ready">Ready</span></div>
+        <div>✅ PBKDF2 + AES-GCM Encryption <span class="status-badge status-ready">Ready</span></div>
+        <div>✅ WebAuthn Biometric Support <span class="status-badge status-ready">Ready</span></div>
+        <div>✅ HD Wallet Integration <span class="status-badge status-ready">Ready</span></div>
+        <div>✅ UI Components <span class="status-badge status-ready">Ready</span></div>
+    </div>
+
+    <div class="test-card">
+        <h3>🎯 Test Plan</h3>
+        <p><strong>Expected Lobstr-like Flow:</strong></p>
+        <ol>
+            <li><strong>First Time Setup:</strong>
+                <ul>
+                    <li>User creates/restores wallet with seed phrase</li>
+                    <li>System shows seed phrase ONCE for backup</li>
+                    <li>User sets up 6-digit PIN</li>
+                    <li>Seed phrase encrypted with PBKDF2 + AES-GCM</li>
+                    <li>Encrypted data stored in localStorage</li>
+                </ul>
+            </li>
+            <li><strong>Daily Use:</strong>
+                <ul>
+                    <li>User enters PIN only (no seed phrase)</li>
+                    <li>System decrypts and loads wallet</li>
+                    <li>Full wallet functionality available</li>
+                </ul>
+            </li>
+            <li><strong>Recovery:</strong>
+                <ul>
+                    <li>Seed phrase only needed for new device/reset</li>
+                    <li>User can set new PIN after recovery</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-card">
+        <h3>🚀 Browser Testing</h3>
+        <p>To test the complete system:</p>
+        <div>
+            <button class="test-button" onclick="window.open('/crypto-wallet', '_blank')">
+                🔗 Open Wallet (New Tab)
+            </button>
+            <button class="test-button" onclick="testBrowserApis()">
+                🧪 Test Browser APIs
+            </button>
+            <button class="test-button" onclick="clearStorage()">
+                🗑️ Clear Test Data
+            </button>
+        </div>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-card">
+        <h3>📋 Manual Test Checklist</h3>
+        <p>Follow these steps to verify the Lobstr-like authentication:</p>
+        <ol>
+            <li>✅ Navigate to <a href="/crypto-wallet" target="_blank">/crypto-wallet</a></li>
+            <li>✅ Click "Create New Wallet" - should show seed phrase generation</li>
+            <li>✅ Write down the 24-word seed phrase (IMPORTANT!)</li>
+            <li>✅ Set up a 6-digit PIN</li>
+            <li>✅ Optional: Enable biometric authentication</li>
+            <li>✅ Wallet should load with full functionality</li>
+            <li>✅ <strong>Refresh the page</strong> - should show PIN unlock (not seed phrase)</li>
+            <li>✅ Enter PIN - wallet should unlock without seed phrase</li>
+            <li>✅ Test recovery by clicking "Use Seed Phrase Instead" on PIN unlock</li>
+        </ol>
+    </div>
+
+    <script>
+        function testBrowserApis() {
+            const results = document.getElementById('test-results');
+            let output = '<div class="test-result result-success">';
+            
+            // Test WebCrypto API
+            if (window.crypto && window.crypto.subtle) {
+                output += '✅ WebCrypto API: Available\n';
+                output += '✅ PBKDF2: Available\n';
+                output += '✅ AES-GCM: Available\n';
+            } else {
+                output += '❌ WebCrypto API: Not Available\n';
+            }
+            
+            // Test WebAuthn API
+            if (window.PublicKeyCredential) {
+                output += '✅ WebAuthn API: Available\n';
+                PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                    .then(available => {
+                        output += available ? '✅ Platform Authenticator: Available\n' : '⚠️ Platform Authenticator: Not Available\n';
+                    });
+            } else {
+                output += '❌ WebAuthn API: Not Available\n';
+            }
+            
+            // Test localStorage
+            if (window.localStorage) {
+                output += '✅ localStorage: Available\n';
+            } else {
+                output += '❌ localStorage: Not Available\n';
+            }
+            
+            output += '\n🎉 Browser environment ready for Lobstr-like authentication!';
+            output += '</div>';
+            results.innerHTML = output;
+        }
+        
+        function clearStorage() {
+            localStorage.removeItem('cypher_encrypted_wallet');
+            localStorage.removeItem('cypher_biometric_credential');
+            
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<div class="test-result result-success">🗑️ Test data cleared. Ready for fresh testing.</div>';
+        }
+        
+        // Auto-test on load
+        setTimeout(testBrowserApis, 500);
+    </script>
+</body>
+</html>

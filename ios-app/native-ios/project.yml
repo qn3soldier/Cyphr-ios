@@ -1,0 +1,30 @@
+name: CyphrMessenger
+options:
+  bundleIdPrefix: app.cyphrmessenger
+  
+targets:
+  CyphrMessenger:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - CyphrMessenger
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: app.cyphrmessenger.ios
+      MARKETING_VERSION: "1.0.0"
+      CURRENT_PROJECT_VERSION: "1"
+      INFOPLIST_FILE: CyphrMessenger/Info.plist
+    info:
+      path: CyphrMessenger/Info.plist
+      properties:
+        CFBundleDisplayName: "Cyphr Messenger"
+        CFBundleIdentifier: "app.cyphrmessenger.ios"
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0.0"
+        LSRequiresIPhoneOS: true
+        UIRequiredDeviceCapabilities: 
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSFaceIDUsageDescription: "Use Face ID to securely access your Cyphr Identity"
+        NSLocalAuthenticationUsageDescription: "Use biometric authentication for secure access"

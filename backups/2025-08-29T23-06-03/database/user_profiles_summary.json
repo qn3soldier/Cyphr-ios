@@ -1,0 +1,34 @@
+{
+  "total_users": 4,
+  "exported_at": "2025-08-29T23:06:03.862Z",
+  "users": [
+    {
+      "id": "6031c571-6031-4571-8031-c5716031c571",
+      "full_name": "Cyphr User",
+      "cyphr_id": null,
+      "avatar_url": null,
+      "created_at": "2025-08-29T09:39:41.107+00:00"
+    },
+    {
+      "id": "060b8181-060b-4181-860b-8181060b8181",
+      "full_name": "Cyphr User",
+      "cyphr_id": null,
+      "avatar_url": null,
+      "created_at": "2025-08-29T09:39:11.586+00:00"
+    },
+    {
+      "id": "dd2adc7e-e242-4e76-a51c-74f925af999d",
+      "full_name": "Test User",
+      "cyphr_id": "@testuser3151",
+      "avatar_url": null,
+      "created_at": "2025-08-29T21:29:21.418+00:00"
+    },
+    {
+      "id": "71952df3-7195-4df3-8195-2df371952df3",
+      "full_name": "Cyphr User",
+      "cyphr_id": null,
+      "avatar_url": null,
+      "created_at": "2025-08-29T21:30:54.293+00:00"
+    }
+  ]
+}

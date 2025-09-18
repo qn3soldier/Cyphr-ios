@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Debug</title>
+    <script type="module">
+        console.log('🐛 Starting wallet debug...');
+        
+        // Test localStorage access
+        try {
+            console.log('✅ localStorage available');
+            localStorage.setItem('test', 'ok');
+            localStorage.removeItem('test');
+        } catch (e) {
+            console.error('❌ localStorage error:', e);
+        }
+        
+        // Test crypto API
+        try {
+            if (window.crypto && window.crypto.subtle) {
+                console.log('✅ WebCrypto API available');
+                console.log('Available methods:', Object.getOwnPropertyNames(crypto.subtle));
+            } else {
+                console.error('❌ WebCrypto API not available');
+            }
+        } catch (e) {
+            console.error('❌ WebCrypto error:', e);
+        }
+        
+        // Check if the wallet storage key exists
+        const walletKey = 'cypher_encrypted_wallet';
+        const walletData = localStorage.getItem(walletKey);
+        console.log('🔍 Wallet data in localStorage:', walletData ? 'EXISTS' : 'NOT_FOUND');
+        
+        // Test basic EncryptedWalletStorage
+        try {
+            // Simulate the check that's failing
+            const isStored = walletData !== null;
+            console.log('📊 isWalletStored result:', isStored);
+            
+            if (!isStored) {
+                console.log('✅ No wallet found - should show setup options');
+                document.body.innerHTML = '<h1>✅ Wallet Debug: Setup Required</h1><p>No encrypted wallet found. Should show create/restore options.</p>';
+            } else {
+                console.log('🔒 Wallet found - should show PIN unlock');
+                document.body.innerHTML = '<h1>🔒 Wallet Debug: PIN Unlock Required</h1><p>Encrypted wallet found. Should show PIN entry.</p>';
+            }
+        } catch (e) {
+            console.error('❌ Wallet check error:', e);
+            document.body.innerHTML = '<h1>❌ Error</h1><p>' + e.message + '</p>';
+        }
+    </script>
+</head>
+<body>
+    <h1>Loading wallet debug...</h1>
+</body>
+</html>

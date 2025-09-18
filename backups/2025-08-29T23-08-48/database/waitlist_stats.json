@@ -1,0 +1,12 @@
+{
+  "table_name": "waitlist_stats",
+  "row_count": 1,
+  "exported_at": "2025-08-29T23:08:51.419Z",
+  "data": [
+    {
+      "total_signups": 9,
+      "days_active": 5,
+      "last_signup": "2025-08-15T01:21:55.859723+00:00"
+    }
+  ]
+}

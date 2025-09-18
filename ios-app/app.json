@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Cyphr Messenger",
+    "slug": "cyphr-messenger",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.cyphrmessenger.ios",
+      "buildNumber": "1", 
+      "deploymentTarget": "15.1",
+      "config": {
+        "usesNonExemptEncryption": false,
+        "enableInspectorInProduction": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "Cyphr Messenger needs camera access for profile photos and QR code scanning.",
+        "NSMicrophoneUsageDescription": "Cyphr Messenger needs microphone access for voice messages and calls.",
+        "NSFaceIDUsageDescription": "Cyphr Messenger uses Face ID to secure your cryptographic identity.",
+        "NSContactsUsageDescription": "Cyphr Messenger can access your contacts to help you find friends.",
+        "NSPhotoLibraryUsageDescription": "Cyphr Messenger needs photo library access to share images.",
+        "NSLocationWhenInUseUsageDescription": "Cyphr Messenger can use location for enhanced security features."
+      },
+      "capabilities": [
+        "secure-enclave"
+      ]
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "app.cyphrmessenger.android"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      "expo-camera", 
+      "expo-av",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "scheme": "cyphr-messenger"
+  }
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HDWallet Import Test</title>
+</head>
+<body>
+    <h1>Testing HDWallet Import</h1>
+    <div id="results">Loading...</div>
+    
+    <script type="module">
+        try {
+            console.log('🧪 Testing HDWallet import...');
+            
+            // Test direct import
+            const HDWalletModule = await import('/src/api/crypto/hdWallet.ts');
+            console.log('✅ HDWallet module imported:', HDWalletModule);
+            
+            const HDWallet = HDWalletModule.default;
+            console.log('🔍 HDWallet default export:', HDWallet);
+            
+            if (HDWallet && typeof HDWallet.isWalletSetup === 'function') {
+                console.log('✅ HDWallet.isWalletSetup is available');
+                const result = HDWallet.isWalletSetup();
+                console.log('📊 isWalletSetup result:', result);
+            } else {
+                console.error('❌ HDWallet.isWalletSetup not available');
+            }
+            
+            document.getElementById('results').innerHTML = `
+                <p>✅ HDWallet imported successfully</p>
+                <p>✅ isWalletSetup method: ${typeof HDWallet?.isWalletSetup}</p>
+                <p>Check console for detailed logs</p>
+            `;
+            
+        } catch (error) {
+            console.error('❌ Import failed:', error);
+            document.getElementById('results').innerHTML = `
+                <p>❌ Import failed: ${error.message}</p>
+                <pre>${error.stack}</pre>
+            `;
+        }
+    </script>
+</body>
+</html>

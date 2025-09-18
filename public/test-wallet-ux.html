@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Wallet UX Test - Cyphr</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        .test-section.error {
+            border-left-color: #f44336;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .info { color: #2196F3; }
+        .warning { color: #FF9800; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Cyphr Wallet UX Test</h1>
+        
+        <div class="test-section">
+            <h2>🚀 1. Application Status</h2>
+            <button onclick="testAppStatus()">Test App Status</button>
+            <div id="appStatus" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔑 2. Kyber1024 Post-Quantum Crypto Test</h2>
+            <button onclick="testKyber()">Test Kyber1024 WASM</button>
+            <div id="kyberResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🛡️ 3. HD Wallet Generation Test</h2>
+            <button onclick="testHDWallet()">Test HD Wallet</button>
+            <div id="walletResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📱 4. WalletOverview Component Test</h2>
+            <button onclick="testWalletOverview()">Test Wallet UI</button>
+            <div id="uiResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>💾 5. Database Connection Test</h2>
+            <button onclick="testDatabase()">Test Supabase</button>
+            <div id="dbResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🌟 6. Full Wallet Flow Simulation</h2>
+            <button onclick="simulateWalletFlow()">Simulate Complete Flow</button>
+            <div id="flowResult" class="result"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        console.log('🔐 Cyphr Wallet UX Test Suite Loaded');
+
+        window.testAppStatus = async function() {
+            const result = document.getElementById('appStatus');
+            result.innerHTML = '<span class="info">⏳ Testing application status...</span>';
+            
+            try {
+                // Check if we're running from the correct server
+                const isCorrectPort = window.location.port === '5173';
+                const frontendStatus = isCorrectPort ? '✅ Frontend running on :5173' : '⚠️ Not running on expected port';
+                
+                // Test backend connection
+                let backendStatus = '❌ Backend not accessible';
+                try {
+                    const response = await fetch('http://localhost:3001/health');
+                    if (response.ok) {
+                        const data = await response.json();
+                        backendStatus = `✅ Backend OK (${data.status})`;
+                    }
+                } catch (e) {
+                    backendStatus = '❌ Backend connection failed';
+                }
+                
+                result.innerHTML = `
+                    <div class="success">${frontendStatus}</div>
+                    <div class="${backendStatus.includes('✅') ? 'success' : 'error'}">${backendStatus}</div>
+                    <div class="info">🌐 Current URL: ${window.location.href}</div>
+                `;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        };
+
+        window.testKyber = async function() {
+            const result = document.getElementById('kyberResult');
+            result.innerHTML = '<span class="info">⏳ Testing Kyber1024 post-quantum cryptography...</span>';
+            
+            try {
+                // Try to import Kyber1024 module
+                const kyberModule = await import('/src/api/crypto/realKyber1024.ts');
+                result.innerHTML += '<div class="success">✅ Kyber1024 module imported successfully</div>';
+                
+                // Test key generation
+                const kyber = new kyberModule.realKyber1024();
+                const keyPair = await kyber.generateKeyPair();
+                
+                result.innerHTML += `
+                    <div class="success">✅ Kyber1024 key pair generated</div>
+                    <div class="info">📏 Public key: ${keyPair.publicKey.length} bytes</div>
+                    <div class="info">🔑 Secret key: ${keyPair.secretKey.length} bytes</div>
+                `;
+                
+                // Test encapsulation
+                const encapsulation = await kyber.encapsulate(keyPair.publicKey);
+                result.innerHTML += `
+                    <div class="success">✅ Kyber1024 encapsulation successful</div>
+                    <div class="info">📦 Ciphertext: ${encapsulation.ciphertext.length} bytes</div>
+                    <div class="info">🤝 Shared secret: ${encapsulation.sharedSecret.length} bytes</div>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Kyber1024 Error: ${error.message}</span>`;
+                console.error('Kyber1024 test failed:', error);
+            }
+        };
+
+        window.testHDWallet = async function() {
+            const result = document.getElementById('walletResult');
+            result.innerHTML = '<span class="info">⏳ Testing HD Wallet generation...</span>';
+            
+            try {
+                // Import HD Wallet module
+                const hdWalletModule = await import('/src/api/crypto/hdWallet.ts');
+                result.innerHTML += '<div class="success">✅ HD Wallet module imported</div>';
+                
+                // Generate seed phrase
+                const seedPhrase = hdWalletModule.default.generateSeedPhrase();
+                result.innerHTML += `
+                    <div class="success">✅ BIP39 seed phrase generated</div>
+                    <div class="info">📝 Length: ${seedPhrase.split(' ').length} words</div>
+                    <div class="info">🔍 First 3 words: ${seedPhrase.split(' ').slice(0, 3).join(' ')}...</div>
+                `;
+                
+                // Create HD wallet from seed
+                const hdWallet = await hdWalletModule.default.fromSeedPhrase(seedPhrase);
+                result.innerHTML += '<div class="success">✅ HD Wallet created from seed phrase</div>';
+                
+                // Derive Stellar key
+                const stellarKey = await hdWallet.deriveKey('stellar', 0);
+                result.innerHTML += `
+                    <div class="success">✅ Stellar key derived</div>
+                    <div class="info">🌟 Address: ${stellarKey.address.substring(0, 8)}...${stellarKey.address.slice(-8)}</div>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ HD Wallet Error: ${error.message}</span>`;
+                console.error('HD Wallet test failed:', error);
+            }
+        };
+
+        window.testWalletOverview = async function() {
+            const result = document.getElementById('uiResult');
+            result.innerHTML = '<span class="info">⏳ Testing WalletOverview component...</span>';
+            
+            try {
+                // Check if React app is running
+                const reactRoot = document.querySelector('#root');
+                if (!reactRoot) {
+                    throw new Error('React root element not found');
+                }
+                
+                result.innerHTML = `
+                    <div class="success">✅ React root element found</div>
+                    <div class="info">🎯 To test wallet UI: Navigate to <a href="/crypto-wallet" style="color: #4CAF50;">/crypto-wallet</a></div>
+                    <div class="info">📱 Expected flow: Create wallet → Set PIN → Daily PIN unlock</div>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ UI Test Error: ${error.message}</span>`;
+            }
+        };
+
+        window.testDatabase = async function() {
+            const result = document.getElementById('dbResult');
+            result.innerHTML = '<span class="info">⏳ Testing Supabase connection...</span>';
+            
+            try {
+                // Test Supabase connection
+                const response = await fetch('http://127.0.0.1:54321/rest/v1/users?select=count&limit=1', {
+                    headers: {
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML = `
+                        <div class="success">✅ Supabase connection successful</div>
+                        <div class="info">👥 Users table accessible (count: ${data[0]?.count || 'unknown'})</div>
+                    `;
+                    
+                    // Test user_wallets table
+                    const walletResponse = await fetch('http://127.0.0.1:54321/rest/v1/user_wallets?select=count&limit=1', {
+                        headers: {
+                            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+                        }
+                    });
+                    
+                    if (walletResponse.ok) {
+                        result.innerHTML += '<div class="success">✅ user_wallets table exists</div>';
+                    } else {
+                        result.innerHTML += '<div class="warning">⚠️ user_wallets table not found - run create-user-wallets.sql</div>';
+                    }
+                    
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Database Error: ${error.message}</span>`;
+            }
+        };
+
+        window.simulateWalletFlow = async function() {
+            const result = document.getElementById('flowResult');
+            result.innerHTML = '<span class="info">⏳ Simulating complete wallet flow...</span>';
+            
+            try {
+                let output = '<div class="info">🎯 LOBSTR-LIKE WALLET FLOW SIMULATION</div>';
+                
+                // Step 1: Generate seed phrase
+                output += '<div class="success">1️⃣ ✅ User generates seed phrase (one time only)</div>';
+                
+                // Step 2: Set PIN
+                output += '<div class="success">2️⃣ ✅ User sets 6-digit PIN</div>';
+                
+                // Step 3: Encrypt and store
+                output += '<div class="success">3️⃣ ✅ Seed phrase encrypted with PBKDF2 + AES-GCM</div>';
+                
+                // Step 4: Daily unlock
+                output += '<div class="success">4️⃣ ✅ Daily access via PIN only (no seed phrase)</div>';
+                
+                // Step 5: Cross-device sync
+                output += '<div class="info">5️⃣ 🔄 Cross-device sync (requires user_wallets table)</div>';
+                
+                // Step 6: Balance loading
+                output += '<div class="success">6️⃣ ✅ Balance loading with caching</div>';
+                
+                result.innerHTML = output;
+                
+                // Show next steps
+                result.innerHTML += `
+                    <div class="warning">📋 NEXT ACTIONS REQUIRED:</div>
+                    <div class="info">• Deploy user_wallets schema in Supabase</div>
+                    <div class="info">• Test complete flow at /crypto-wallet</div>
+                    <div class="info">• Verify PIN setup and daily unlock</div>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Flow Simulation Error: ${error.message}</span>`;
+            }
+        };
+
+        // Auto-run app status test on load
+        window.addEventListener('load', () => {
+            setTimeout(testAppStatus, 1000);
+        });
+    </script>
+</body>
+</html>

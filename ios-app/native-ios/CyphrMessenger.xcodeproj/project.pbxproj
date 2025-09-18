@@ -1,0 +1,29 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXFileReference section */
+		4A1234567890ABCD /* CyphrMessengerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrMessengerApp.swift; sourceTree = "<group>"; };
+		4A1234567890ABCE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		4A1234567890ABCF /* CyphrMessenger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CyphrMessenger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		4A1234567890ABC0 = {
+			isa = PBXGroup;
+			children = (
+				4A1234567890ABCD /* CyphrMessengerApp.swift */,
+				4A1234567890ABCE /* ContentView.swift */,
+			);
+			path = CyphrMessenger;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+	};
+	rootObject = 4A1234567890ABC1 /* Project object */;
+}

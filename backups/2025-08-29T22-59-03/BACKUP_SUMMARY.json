@@ -1,0 +1,14 @@
+{
+  "backup_completed_at": "2025-08-29T22:59:04.079Z",
+  "backup_directory": "/Users/daniilbogdanov/cyphrmessenger/backups/2025-08-29T22-59-03",
+  "total_duration_ms": 286,
+  "total_tables": 0,
+  "total_users": 0,
+  "successful_tables": 0,
+  "failed_tables": 0,
+  "table_results": [],
+  "supabase_config": {
+    "url": "https://fkhwhplufjzlicccgbrf.supabase.co",
+    "backup_method": "full_export"
+  }
+}

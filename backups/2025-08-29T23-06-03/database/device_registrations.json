@@ -1,0 +1,25 @@
+{
+  "table_name": "device_registrations",
+  "row_count": 2,
+  "exported_at": "2025-08-29T23:06:06.060Z",
+  "data": [
+    {
+      "id": "430a9b3d-5477-42ae-8dba-f23ae64421df",
+      "device_fingerprint": "lmpZe09O+Bf80jg1tokQJL6ZFcsj/mCRWK+OlOXcc5I=",
+      "cyphr_id": "060b8181-060b-4181-860b-8181060b8181",
+      "browser_info": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+      "registered_at": "2025-08-29T09:39:11.861914+00:00",
+      "last_seen": "2025-08-29T09:39:11.861914+00:00",
+      "user_id": null
+    },
+    {
+      "id": "72c34162-3fea-4fc6-a224-f283e47c08c1",
+      "device_fingerprint": "Q187p/UyfUaNlrtVr8lt8CGMXwacAuT34pf0nbArih0=",
+      "cyphr_id": "6031c571-6031-4571-8031-c5716031c571",
+      "browser_info": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+      "registered_at": "2025-08-29T09:39:41.405167+00:00",
+      "last_seen": "2025-08-29T09:39:41.405167+00:00",
+      "user_id": null
+    }
+  ]
+}
