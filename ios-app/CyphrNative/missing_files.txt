@@ -1,5 +1,0 @@
-LoadingOverlay.swift
-RecoveryPhraseView.swift
-S3Service.swift
-SecuritySetupView.swift
-UsernameValidator.swift

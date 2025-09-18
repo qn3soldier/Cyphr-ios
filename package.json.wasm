@@ -1,1 +1,0 @@
-{"type": "module", "imports": {"#wasm": "./node_modules/pqc-kyber/pqc_kyber_bg.wasm"}}
