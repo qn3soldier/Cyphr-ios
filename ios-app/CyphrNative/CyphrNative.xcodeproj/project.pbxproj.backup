@@ -1,0 +1,507 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 63;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		15C1B80359A1E27E42EA16CF /* PostQuantumCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_DEE0F9C0-9520-4087-ACA2-00854D5692BC" /* PostQuantumCrypto.swift */; };
+		171F2E4A56BF734C730E1524 /* CallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_EDEB80D3-DEC9-4C39-9FAF-B6DFDF524B16" /* CallView.swift */; };
+		1C2702C680526BA3956AD78A /* UsernameValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3B8551C8-EE54-4AE6-8404-EEE1BBD67BA4" /* UsernameValidator.swift */; };
+		4B16128E9EAD99A70A5B817F /* ChatDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_A843B5DA-CBA5-4190-AD89-1C01D8C930CA" /* ChatDetailView.swift */; };
+		4B931C9B2194C740A1F0220C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_45291A65-666F-45AB-BCCC-38CF617B3D9C" /* SettingsView.swift */; };
+		4FA278CE02D7313B35716996 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77D1D564D4075C714754C559 /* Assets.xcassets */; };
+		581A3C732D295D9E81A016BC /* HDWalletService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_CC319072-F99E-4761-BC53-93EB285E1BC7" /* HDWalletService.swift */; };
+		7CB23CEFB5504940EFFA969A /* AuthenticationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_2A7A63C1-5A0C-42B2-9F43-246046491C37" /* AuthenticationService.swift */; };
+		8C930DA82D43332529E6734B /* S3Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_FE73E6BF-C6E2-4626-B0FF-F6857CE43F0C" /* S3Service.swift */; };
+		8EEED95517DB7E289055309C /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_39982D22-DD3D-4F4A-A34F-AF36406154AA" /* ImagePicker.swift */; };
+		9D5E9CF32BFDB63FE4D3A953 /* CyphrApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_13BCEE1E-818A-4C90-9A04-876DD24E2BC0" /* CyphrApp.swift */; };
+		A043039B5781CC1D29750DDE /* RecoveryPhraseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_43989C9B-A839-481B-B4FC-893D85AACCE5" /* RecoveryPhraseView.swift */; };
+		A38D45236F7A7707F7D5F2B5 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_863302E3-E9F7-41BB-BB28-64EDF72C702C" /* ProfileView.swift */; };
+		AD70F881F178B2A32EDB038F /* AuthMethodSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_C9354CE0-5EEC-40AE-81F1-8EB1FE5E7A66" /* AuthMethodSelectionView.swift */; };
+		ADC37FFE84E64A045EFA77DC /* CyphrIdLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3F6F78B3-DEC4-4148-9C67-34DD41E24810" /* CyphrIdLoginView.swift */; };
+		AE7EE65FFDA3C5DBF5EE9EF5 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = B8AA5CD6495FD15A8EA9A6D2 /* SocketIO */; };
+		B11B99CED89A154D1156D2B9 /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_737EF6EE-F657-417A-9A32-0BD5E11A574F" /* NetworkService.swift */; };
+		BDD74F283334ED3630EC5D88 /* WebRTCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_8CAEB3FF-0996-4965-BCEA-C1764CA23712" /* WebRTCService.swift */; };
+		BFF5C3442E7399EA00F50464 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = BFF5C3432E7399EA00F50464 /* WebRTC */; };
+		C21F726B8BF571EF9A2334C2 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_04B1AC53-701A-4D84-8FD2-B808AE3621A9" /* Models.swift */; };
+		C48BB7424923C45FCD1EE468 /* CyphrIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_5898C7B6-0796-49EE-B520-7B2C58C0B826" /* CyphrIdentity.swift */; };
+		C8448A39A28E219818FC8DB9 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_E0FD95CF-7DEA-4F7B-A2EA-9AE578AB6416" /* WelcomeView.swift */; };
+		CEF376D9EE337C7FBC6AFA87 /* NewChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_BC253BAC-9428-4835-8728-10C62E2862C1" /* NewChatView.swift */; };
+		D6E23F137A7FFF5324340DCB /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 06210A339F131F1B5213CD55 /* LaunchScreen.storyboard */; };
+		DEA5C2A49653A538140B7C89 /* SecuritySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3E834A92-B84E-43A7-9427-802D8DB94987" /* SecuritySetupView.swift */; };
+		DF5C4F378C155B7CDB231995 /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_6BC9E048-1EA0-424B-95D9-E4191656777A" /* LoadingOverlay.swift */; };
+		E8E2FD64AF7827784B3DBE91 /* SwiftKyber in Frameworks */ = {isa = PBXBuildFile; productRef = D215B3B6F3B676FD80B6F7AE /* SwiftKyber */; };
+		F63AB722BE73B4CF8E7A0B15 /* WalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_BD504761-7033-4F8F-B96C-AA0B0F924EFD" /* WalletView.swift */; };
+		F93C4832325FAD84EE2FD7D3 /* ChatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_CC74FB5E-8408-4BB6-A20A-A933CB2D4E32" /* ChatsView.swift */; };
+		F9C04CA37C6F7A6519F4A9E0 /* CyphrIdSignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_29544201-DB5A-4C1F-8E83-FB1F9C52A7B7" /* CyphrIdSignUpView.swift */; };
+		FC0D18FC9D58A698E055AB11 /* MessagingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_8227256F-AB5A-4C4C-8501-014B2F690AC2" /* MessagingService.swift */; };
+		FE3F48E2F5B2D9D175A2EDF6 /* ZeroKnowledgeLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_0D4237C8-972C-4B07-A4F1-4A103FEFA765" /* ZeroKnowledgeLookup.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		06210A339F131F1B5213CD55 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		5B18DBFDD4BBA6DDF48032CD /* Cyphr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cyphr.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		77D1D564D4075C714754C559 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		"TEMP_04B1AC53-701A-4D84-8FD2-B808AE3621A9" /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		"TEMP_0D4237C8-972C-4B07-A4F1-4A103FEFA765" /* ZeroKnowledgeLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZeroKnowledgeLookup.swift; sourceTree = "<group>"; };
+		"TEMP_13BCEE1E-818A-4C90-9A04-876DD24E2BC0" /* CyphrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrApp.swift; sourceTree = "<group>"; };
+		"TEMP_29544201-DB5A-4C1F-8E83-FB1F9C52A7B7" /* CyphrIdSignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrIdSignUpView.swift; sourceTree = "<group>"; };
+		"TEMP_2A7A63C1-5A0C-42B2-9F43-246046491C37" /* AuthenticationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationService.swift; sourceTree = "<group>"; };
+		"TEMP_39982D22-DD3D-4F4A-A34F-AF36406154AA" /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		"TEMP_3B8551C8-EE54-4AE6-8404-EEE1BBD67BA4" /* UsernameValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsernameValidator.swift; sourceTree = "<group>"; };
+		"TEMP_3E834A92-B84E-43A7-9427-802D8DB94987" /* SecuritySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySetupView.swift; sourceTree = "<group>"; };
+		"TEMP_3F6F78B3-DEC4-4148-9C67-34DD41E24810" /* CyphrIdLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrIdLoginView.swift; sourceTree = "<group>"; };
+		"TEMP_43989C9B-A839-481B-B4FC-893D85AACCE5" /* RecoveryPhraseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPhraseView.swift; sourceTree = "<group>"; };
+		"TEMP_45291A65-666F-45AB-BCCC-38CF617B3D9C" /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		"TEMP_5898C7B6-0796-49EE-B520-7B2C58C0B826" /* CyphrIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrIdentity.swift; sourceTree = "<group>"; };
+		"TEMP_6BC9E048-1EA0-424B-95D9-E4191656777A" /* LoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlay.swift; sourceTree = "<group>"; };
+		"TEMP_737EF6EE-F657-417A-9A32-0BD5E11A574F" /* NetworkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
+		"TEMP_8227256F-AB5A-4C4C-8501-014B2F690AC2" /* MessagingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagingService.swift; sourceTree = "<group>"; };
+		"TEMP_863302E3-E9F7-41BB-BB28-64EDF72C702C" /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		"TEMP_8CAEB3FF-0996-4965-BCEA-C1764CA23712" /* WebRTCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCService.swift; sourceTree = "<group>"; };
+		"TEMP_A843B5DA-CBA5-4190-AD89-1C01D8C930CA" /* ChatDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDetailView.swift; sourceTree = "<group>"; };
+		"TEMP_BC253BAC-9428-4835-8728-10C62E2862C1" /* NewChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewChatView.swift; sourceTree = "<group>"; };
+		"TEMP_BD504761-7033-4F8F-B96C-AA0B0F924EFD" /* WalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletView.swift; sourceTree = "<group>"; };
+		"TEMP_C9354CE0-5EEC-40AE-81F1-8EB1FE5E7A66" /* AuthMethodSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthMethodSelectionView.swift; sourceTree = "<group>"; };
+		"TEMP_CC319072-F99E-4761-BC53-93EB285E1BC7" /* HDWalletService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HDWalletService.swift; sourceTree = "<group>"; };
+		"TEMP_CC74FB5E-8408-4BB6-A20A-A933CB2D4E32" /* ChatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsView.swift; sourceTree = "<group>"; };
+		"TEMP_DEE0F9C0-9520-4087-ACA2-00854D5692BC" /* PostQuantumCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostQuantumCrypto.swift; sourceTree = "<group>"; };
+		"TEMP_E0FD95CF-7DEA-4F7B-A2EA-9AE578AB6416" /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		"TEMP_EDEB80D3-DEC9-4C39-9FAF-B6DFDF524B16" /* CallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallView.swift; sourceTree = "<group>"; };
+		"TEMP_FE73E6BF-C6E2-4626-B0FF-F6857CE43F0C" /* S3Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Service.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		70E97D5A1B46FA1F07FA15B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E8E2FD64AF7827784B3DBE91 /* SwiftKyber in Frameworks */,
+				BFF5C3442E7399EA00F50464 /* WebRTC in Frameworks */,
+				AE7EE65FFDA3C5DBF5EE9EF5 /* SocketIO in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		761A1CF60431860384DB97BA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5B18DBFDD4BBA6DDF48032CD /* Cyphr.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BFF5C3412E73998200F50464 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
+		EEC238E22F51F8E124B09829 = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_C9354CE0-5EEC-40AE-81F1-8EB1FE5E7A66" /* AuthMethodSelectionView.swift */,
+				"TEMP_2A7A63C1-5A0C-42B2-9F43-246046491C37" /* AuthenticationService.swift */,
+				"TEMP_EDEB80D3-DEC9-4C39-9FAF-B6DFDF524B16" /* CallView.swift */,
+				"TEMP_A843B5DA-CBA5-4190-AD89-1C01D8C930CA" /* ChatDetailView.swift */,
+				"TEMP_CC74FB5E-8408-4BB6-A20A-A933CB2D4E32" /* ChatsView.swift */,
+				"TEMP_13BCEE1E-818A-4C90-9A04-876DD24E2BC0" /* CyphrApp.swift */,
+				"TEMP_3F6F78B3-DEC4-4148-9C67-34DD41E24810" /* CyphrIdLoginView.swift */,
+				"TEMP_29544201-DB5A-4C1F-8E83-FB1F9C52A7B7" /* CyphrIdSignUpView.swift */,
+				"TEMP_5898C7B6-0796-49EE-B520-7B2C58C0B826" /* CyphrIdentity.swift */,
+				"TEMP_CC319072-F99E-4761-BC53-93EB285E1BC7" /* HDWalletService.swift */,
+				"TEMP_39982D22-DD3D-4F4A-A34F-AF36406154AA" /* ImagePicker.swift */,
+				"TEMP_6BC9E048-1EA0-424B-95D9-E4191656777A" /* LoadingOverlay.swift */,
+				"TEMP_8227256F-AB5A-4C4C-8501-014B2F690AC2" /* MessagingService.swift */,
+				"TEMP_04B1AC53-701A-4D84-8FD2-B808AE3621A9" /* Models.swift */,
+				"TEMP_737EF6EE-F657-417A-9A32-0BD5E11A574F" /* NetworkService.swift */,
+				"TEMP_BC253BAC-9428-4835-8728-10C62E2862C1" /* NewChatView.swift */,
+				"TEMP_DEE0F9C0-9520-4087-ACA2-00854D5692BC" /* PostQuantumCrypto.swift */,
+				"TEMP_863302E3-E9F7-41BB-BB28-64EDF72C702C" /* ProfileView.swift */,
+				"TEMP_43989C9B-A839-481B-B4FC-893D85AACCE5" /* RecoveryPhraseView.swift */,
+				"TEMP_FE73E6BF-C6E2-4626-B0FF-F6857CE43F0C" /* S3Service.swift */,
+				"TEMP_3E834A92-B84E-43A7-9427-802D8DB94987" /* SecuritySetupView.swift */,
+				"TEMP_45291A65-666F-45AB-BCCC-38CF617B3D9C" /* SettingsView.swift */,
+				"TEMP_3B8551C8-EE54-4AE6-8404-EEE1BBD67BA4" /* UsernameValidator.swift */,
+				"TEMP_BD504761-7033-4F8F-B96C-AA0B0F924EFD" /* WalletView.swift */,
+				"TEMP_8CAEB3FF-0996-4965-BCEA-C1764CA23712" /* WebRTCService.swift */,
+				"TEMP_E0FD95CF-7DEA-4F7B-A2EA-9AE578AB6416" /* WelcomeView.swift */,
+				"TEMP_0D4237C8-972C-4B07-A4F1-4A103FEFA765" /* ZeroKnowledgeLookup.swift */,
+				06210A339F131F1B5213CD55 /* LaunchScreen.storyboard */,
+				77D1D564D4075C714754C559 /* Assets.xcassets */,
+				761A1CF60431860384DB97BA /* Products */,
+				BFF5C3412E73998200F50464 /* Recovered References */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		20AD531C4D6087490C779856 /* CyphrNative */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 97EDD68135AAD376A6F0E919 /* Build configuration list for PBXNativeTarget "CyphrNative" */;
+			buildPhases = (
+				8E9D1AB00E8E3A7C9F348958 /* Sources */,
+				EB693B9220DEACD526EEA8E0 /* Resources */,
+				70E97D5A1B46FA1F07FA15B8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CyphrNative;
+			packageProductDependencies = (
+				D215B3B6F3B676FD80B6F7AE /* SwiftKyber */,
+				B8AA5CD6495FD15A8EA9A6D2 /* SocketIO */,
+				BFF5C3432E7399EA00F50464 /* WebRTC */,
+			);
+			productName = CyphrNative;
+			productReference = 5B18DBFDD4BBA6DDF48032CD /* Cyphr.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		89034586915F036BB505E583 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					20AD531C4D6087490C779856 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 24B6DAF7C1E277AE2795C8FC /* Build configuration list for PBXProject "CyphrNative" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = EEC238E22F51F8E124B09829;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D4D40145F4CD56EB005AE2E8 /* XCRemoteSwiftPackageReference "socket" */,
+				30F5C85B5FF6A78DF39AB04F /* XCRemoteSwiftPackageReference "SwiftKyber" */,
+				BFF5C3422E7399EA00F50464 /* XCRemoteSwiftPackageReference "WebRTC" */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				20AD531C4D6087490C779856 /* CyphrNative */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EB693B9220DEACD526EEA8E0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4FA278CE02D7313B35716996 /* Assets.xcassets in Resources */,
+				D6E23F137A7FFF5324340DCB /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8E9D1AB00E8E3A7C9F348958 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AD70F881F178B2A32EDB038F /* AuthMethodSelectionView.swift in Sources */,
+				7CB23CEFB5504940EFFA969A /* AuthenticationService.swift in Sources */,
+				171F2E4A56BF734C730E1524 /* CallView.swift in Sources */,
+				4B16128E9EAD99A70A5B817F /* ChatDetailView.swift in Sources */,
+				F93C4832325FAD84EE2FD7D3 /* ChatsView.swift in Sources */,
+				9D5E9CF32BFDB63FE4D3A953 /* CyphrApp.swift in Sources */,
+				ADC37FFE84E64A045EFA77DC /* CyphrIdLoginView.swift in Sources */,
+				F9C04CA37C6F7A6519F4A9E0 /* CyphrIdSignUpView.swift in Sources */,
+				C48BB7424923C45FCD1EE468 /* CyphrIdentity.swift in Sources */,
+				581A3C732D295D9E81A016BC /* HDWalletService.swift in Sources */,
+				8EEED95517DB7E289055309C /* ImagePicker.swift in Sources */,
+				DF5C4F378C155B7CDB231995 /* LoadingOverlay.swift in Sources */,
+				FC0D18FC9D58A698E055AB11 /* MessagingService.swift in Sources */,
+				C21F726B8BF571EF9A2334C2 /* Models.swift in Sources */,
+				B11B99CED89A154D1156D2B9 /* NetworkService.swift in Sources */,
+				CEF376D9EE337C7FBC6AFA87 /* NewChatView.swift in Sources */,
+				15C1B80359A1E27E42EA16CF /* PostQuantumCrypto.swift in Sources */,
+				A38D45236F7A7707F7D5F2B5 /* ProfileView.swift in Sources */,
+				A043039B5781CC1D29750DDE /* RecoveryPhraseView.swift in Sources */,
+				8C930DA82D43332529E6734B /* S3Service.swift in Sources */,
+				DEA5C2A49653A538140B7C89 /* SecuritySetupView.swift in Sources */,
+				4B931C9B2194C740A1F0220C /* SettingsView.swift in Sources */,
+				1C2702C680526BA3956AD78A /* UsernameValidator.swift in Sources */,
+				F63AB722BE73B4CF8E7A0B15 /* WalletView.swift in Sources */,
+				BDD74F283334ED3630EC5D88 /* WebRTCService.swift in Sources */,
+				C8448A39A28E219818FC8DB9 /* WelcomeView.swift in Sources */,
+				FE3F48E2F5B2D9D175A2EDF6 /* ZeroKnowledgeLookup.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		26813B3275168D845806973A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cyphrmessenger.ios;
+				PRODUCT_NAME = Cyphr;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B9C39EEF744B090558C46A90 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B5A99MMWH6;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cyphrmessenger.ios;
+				PRODUCT_NAME = Cyphr;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D4FD05FB3EB18C3099EDE720 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cyphrmessenger.ios;
+				PRODUCT_NAME = Cyphr;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D88B15563541D10AB03D86F0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = B5A99MMWH6;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cyphrmessenger.ios;
+				PRODUCT_NAME = Cyphr;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		24B6DAF7C1E277AE2795C8FC /* Build configuration list for PBXProject "CyphrNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				26813B3275168D845806973A /* Debug */,
+				D4FD05FB3EB18C3099EDE720 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		97EDD68135AAD376A6F0E919 /* Build configuration list for PBXNativeTarget "CyphrNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D88B15563541D10AB03D86F0 /* Debug */,
+				B9C39EEF744B090558C46A90 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		30F5C85B5FF6A78DF39AB04F /* XCRemoteSwiftPackageReference "SwiftKyber" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/leif-ibsen/SwiftKyber";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		BFF5C3422E7399EA00F50464 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 140.0.0;
+			};
+		};
+		D4D40145F4CD56EB005AE2E8 /* XCRemoteSwiftPackageReference "socket" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/socketio/socket.io-client-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 16.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B8AA5CD6495FD15A8EA9A6D2 /* SocketIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4D40145F4CD56EB005AE2E8 /* XCRemoteSwiftPackageReference "socket" */;
+			productName = SocketIO;
+		};
+		BFF5C3432E7399EA00F50464 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BFF5C3422E7399EA00F50464 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
+		D215B3B6F3B676FD80B6F7AE /* SwiftKyber */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30F5C85B5FF6A78DF39AB04F /* XCRemoteSwiftPackageReference "SwiftKyber" */;
+			productName = SwiftKyber;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 89034586915F036BB505E583 /* Project object */;
+}
