@@ -64,6 +64,8 @@ final class EnterpriseKeychainService {
             kSecUseDataProtectionKeychain as String: kCFBooleanTrue!
         ]
 
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+
         // Add access group if specified (for app extensions)
         if let accessGroup = accessGroup {
             query[kSecAttrAccessGroup as String] = accessGroup
@@ -71,6 +73,8 @@ final class EnterpriseKeychainService {
 
         // Configure biometric protection
         if requiresBiometry {
+            // Access control encodes the same accessibility class, so remove the plain key
+            query.removeValue(forKey: kSecAttrAccessible as String)
             var error: Unmanaged<CFError>?
             guard let accessControl = SecAccessControlCreateWithFlags(
                 kCFAllocatorDefault,
@@ -97,7 +101,10 @@ final class EnterpriseKeychainService {
             auditLogger.info("STORE_SUCCESS: key=\(key, privacy: .public)")
 
             // Verify storage immediately
-            verifyStorage(key: key, accessGroup: accessGroup)
+            guard verifyStorage(key: key, accessGroup: accessGroup) else {
+                logger.error("Verification failed after storing: \(key, privacy: .public)")
+                throw KeychainError.verificationFailed
+            }
 
         case errSecDuplicateItem:
             logger.error("Duplicate item error for: \(key, privacy: .public)")
@@ -133,9 +140,11 @@ final class EnterpriseKeychainService {
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
-        if let context {
-            context.interactionNotAllowed = false
-            query[kSecUseAuthenticationContext as String] = context
+        var resolvedContext = context ?? biometricAuth.currentAuthenticatedContext()
+
+        if let contextToUse = resolvedContext {
+            contextToUse.interactionNotAllowed = false
+            query[kSecUseAuthenticationContext as String] = contextToUse
         } else {
             let nonInteractiveContext = LAContext()
             nonInteractiveContext.interactionNotAllowed = true
@@ -146,7 +155,7 @@ final class EnterpriseKeychainService {
         var status = SecItemCopyMatching(query as CFDictionary, &result)
 
         if status == errSecInteractionNotAllowed || status == errSecAuthFailed {
-            guard context == nil else {
+            guard resolvedContext == nil else {
                 logger.error("Authenticated context failed for: \(key, privacy: .public)")
                 throw KeychainError.authenticationFailed
             }
@@ -161,6 +170,7 @@ final class EnterpriseKeychainService {
                 case .success(let authenticatedContext):
                     authenticatedContext.interactionNotAllowed = false
                     query[kSecUseAuthenticationContext as String] = authenticatedContext
+                    resolvedContext = authenticatedContext
                     status = SecItemCopyMatching(query as CFDictionary, &result)
                 }
             } catch let authError as BiometricAuthService.AuthError {
@@ -355,15 +365,19 @@ final class EnterpriseKeychainService {
         return SecItemDelete(query as CFDictionary)
     }
 
-    private func verifyStorage(key: String, accessGroup: String?) {
+    @discardableResult
+    private func verifyStorage(key: String, accessGroup: String?) -> Bool {
         let status = retrieveStatusWithoutPrompt(key: key, accessGroup: accessGroup)
 
         if status == errSecSuccess {
             logger.info("Verification successful for: \(key, privacy: .public)")
+            return true
         } else if status == errSecInteractionNotAllowed {
             logger.info("Verification deferred (authentication required) for: \(key, privacy: .public)")
+            return true
         } else {
             logger.warning("Verification failed for: \(key, privacy: .public), status: \(status)")
+            return false
         }
     }
 
@@ -371,7 +385,9 @@ final class EnterpriseKeychainService {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: "com.cyphrmessenger.ios",
-            kSecAttrAccount as String: key
+            kSecAttrAccount as String: key,
+            // Match storage path used on writes
+            kSecUseDataProtectionKeychain as String: kCFBooleanTrue!
         ]
 
         if let accessGroup = accessGroup {
@@ -537,6 +553,7 @@ enum KeychainError: LocalizedError {
     case accessControlCreationFailed(String)
     case storeFailed(OSStatus)
     case retrieveFailed(OSStatus)
+    case verificationFailed
 
     var errorDescription: String? {
         switch self {
@@ -578,6 +595,8 @@ enum KeychainError: LocalizedError {
             return "Failed to store item (error: \(status))"
         case .retrieveFailed(let status):
             return "Failed to retrieve item (error: \(status))"
+        case .verificationFailed:
+            return "Stored keychain item could not be verified immediately after writing"
         }
     }
 }

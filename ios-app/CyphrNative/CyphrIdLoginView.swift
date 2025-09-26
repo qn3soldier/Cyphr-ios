@@ -1,28 +1,33 @@
 import SwiftUI
 import LocalAuthentication
 
-/// Pure Cyphr ID Login - ZERO KNOWLEDGE authentication
-/// Login with Cyphr ID + biometrics OR recovery phrase
+/// Recovery/Login view for existing Cyphr identities
+/// Handles recovery phrase input and device binding
 struct CyphrIdLoginView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel = CyphrIdLoginViewModel()
-    @State private var loginMethod: LoginMethod = .cyphrId
-    @State private var isLoading = false
-    @State private var loadingMessage = ""
-    @FocusState private var isInputFocused: Bool
+    @EnvironmentObject var authManager: AuthenticationManager
     
-    enum LoginMethod {
-        case cyphrId
-        case recoveryPhrase
-    }
+    @State private var recoveryWords: [String] = Array(repeating: "", count: 12)
+    @State private var newCyphrId = ""
+    @State private var isValidating = false
+    @State private var isRecovering = false
+    @State private var currentStep: RecoveryStep = .enterPhrase
+    @State private var showError = false
+    @State private var errorMessage = ""
+    @State private var showingSecuritySetup = false
+    
+    @FocusState private var focusedWordIndex: Int?
+    
+    private let cyphrIdentity = CyphrIdentity.shared
+    private let networkService = NetworkService.shared
     
     var body: some View {
         ZStack {
             // Gradient background
             LinearGradient(
                 colors: [
-                    Color(red: 0.07, green: 0.08, blue: 0.12),
-                    Color(red: 0.05, green: 0.06, blue: 0.10)
+                    Color(red: 0.05, green: 0.06, blue: 0.10),
+                    Color(red: 0.07, green: 0.08, blue: 0.12)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -31,42 +36,73 @@ struct CyphrIdLoginView: View {
             
             ScrollView {
                 VStack(spacing: 30) {
+                    // Network banner
+                    NetworkBannerView()
+
                     // Header
                     header
                     
-                    // Login method selector
-                    loginMethodSelector
+                    // Step indicator
+                    stepIndicator
                     
-                    // Login form
+                    // Content based on current step
                     Group {
-                        if loginMethod == .cyphrId {
-                            cyphrIdLoginView
-                        } else {
-                            recoveryPhraseLoginView
+                        switch currentStep {
+                        case .enterPhrase:
+                            recoveryPhraseInput
+                        case .chooseNewId:
+                            newCyphrIdInput
+                        case .securitySetup:
+                            securitySetupSection
+                        case .complete:
+                            completionView
                         }
                     }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
                         removal: .move(edge: .leading).combined(with: .opacity)
                     ))
-                    
-                    // Zero-knowledge info
-                    zeroKnowledgeInfo
                 }
                 .padding()
             }
         }
         .loadingOverlay(
-            isPresented: $isLoading,
-            message: loadingMessage
+            isPresented: $isValidating,
+            message: "Validating recovery phrase..."
         )
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK") { viewModel.showError = false }
+        .loadingOverlay(
+            isPresented: $isRecovering,
+            message: "Restoring your identity..."
+        )
+        .alert("Recovery Error", isPresented: $showError) {
+            Button("OK") { 
+                showError = false 
+                errorMessage = ""
+            }
         } message: {
-            Text(viewModel.errorMessage)
+            Text(errorMessage)
         }
-        .sheet(isPresented: $viewModel.showBiometricSetup) {
-            BiometricSetupView(cyphrId: viewModel.cyphrIdInput)
+        .sheet(isPresented: $showingSecuritySetup) {
+            SecuritySetupView(
+                currentStep: 1,
+                totalSteps: 2,
+                onCompletion: {
+                    showingSecuritySetup = false
+                    withAnimation {
+                        currentStep = .complete
+                    }
+                }
+            )
+        }
+        .onAppear {
+            // Focus on first word field
+            focusedWordIndex = 0
+            if newCyphrId.isEmpty {
+                let cached = CyphrIdentity.shared.cyphrId
+                    ?? UserDefaults.standard.string(forKey: "cyphr_id")
+                    ?? ""
+                newCyphrId = cached
+            }
         }
     }
     
@@ -74,245 +110,225 @@ struct CyphrIdLoginView: View {
     
     private var header: some View {
         VStack(spacing: 15) {
-            Image(systemName: "person.crop.circle.badge.checkmark")
+            Image(systemName: "key.horizontal.fill")
                 .font(.system(size: 60))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [.purple, .blue],
+                        colors: [.blue, .purple],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
             
-            Text("Welcome Back")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            Text("Login with your Cyphr Identity")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.7))
+            VStack(spacing: 8) {
+                Text("Restore Your Identity")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("Enter your 12-word recovery phrase to restore your Cyphr identity on this device")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding(.top, 20)
     }
     
-    // MARK: - Login Method Selector
+    // MARK: - Step Indicator
     
-    private var loginMethodSelector: some View {
-        HStack(spacing: 0) {
-            Button(action: {
-                withAnimation(.spring()) {
-                    loginMethod = .cyphrId
-                    viewModel.clearInputs()
-                }
-            }) {
+    private var stepIndicator: some View {
+        HStack(spacing: 20) {
+            ForEach(Array(RecoveryStep.allCases.enumerated()), id: \.offset) { index, step in
                 VStack(spacing: 8) {
-                    Image(systemName: "at")
-                        .font(.title2)
-                    Text("Cyphr ID")
+                    Circle()
+                        .fill(currentStep.rawValue >= step.rawValue ? 
+                              Color.blue : Color.white.opacity(0.3))
+                        .frame(width: 10, height: 10)
+                    
+                    Text(step.title)
                         .font(.caption)
+                        .foregroundColor(currentStep.rawValue >= step.rawValue ?
+                                       .white : .white.opacity(0.5))
                 }
-                .foregroundColor(loginMethod == .cyphrId ? .white : .white.opacity(0.5))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    loginMethod == .cyphrId ?
-                    AnyView(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.purple.opacity(0.3))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.purple, lineWidth: 1)
-                            )
-                    ) : AnyView(Color.clear)
-                )
-            }
-            
-            Button(action: {
-                withAnimation(.spring()) {
-                    loginMethod = .recoveryPhrase
-                    viewModel.clearInputs()
-                }
-            }) {
-                VStack(spacing: 8) {
-                    Image(systemName: "key.fill")
-                        .font(.title2)
-                    Text("Recovery")
-                        .font(.caption)
-                }
-                .foregroundColor(loginMethod == .recoveryPhrase ? .white : .white.opacity(0.5))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    loginMethod == .recoveryPhrase ?
-                    AnyView(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.purple.opacity(0.3))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.purple, lineWidth: 1)
-                            )
-                    ) : AnyView(Color.clear)
-                )
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-        )
+        .padding(.vertical)
     }
     
-    // MARK: - Cyphr ID Login
+    // MARK: - Recovery Phrase Input
     
-    private var cyphrIdLoginView: some View {
+    private var recoveryPhraseInput: some View {
+        VStack(spacing: 25) {
+            VStack(spacing: 15) {
+                Text("Enter Recovery Phrase")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Text("Type your 12-word recovery phrase in order")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            
+            // 12-word grid
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 15) {
+                ForEach(0..<12, id: \.self) { index in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(index + 1).")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.5))
+                        
+                        TextField("word", text: $recoveryWords[index])
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .font(.system(.callout, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.white.opacity(0.1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(focusedWordIndex == index ? Color.blue : 
+                                                   Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                            .focused($focusedWordIndex, equals: index)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .onSubmit {
+                                // Move to next field
+                                if index < 11 {
+                                    focusedWordIndex = index + 1
+                                } else {
+                                    // Last field - trigger validation
+                                    focusedWordIndex = nil
+                                    Task {
+                                        await validateRecoveryPhrase()
+                                    }
+                                }
+                            }
+                            .onChange(of: recoveryWords[index]) { _, newValue in
+                                // Auto-advance on space or valid word
+                                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if trimmed.contains(" ") {
+                                    // Split on space and distribute words
+                                    let words = trimmed.components(separatedBy: .whitespaces)
+                                        .filter { !$0.isEmpty }
+                                    
+                                    if words.count > 1 {
+                                        distributeWords(words, startingAt: index)
+                                    } else if words.count == 1 {
+                                        recoveryWords[index] = words[0]
+                                        if index < 11 {
+                                            focusedWordIndex = index + 1
+                                        }
+                                    }
+                                } else {
+                                    recoveryWords[index] = trimmed.lowercased()
+                                }
+                            }
+                    }
+                }
+            }
+            
+            // Paste from clipboard button
+            Button(action: {
+                pasteFromClipboard()
+            }) {
+                Label("Paste from Clipboard", systemImage: "doc.on.clipboard")
+                    .font(.callout)
+                    .foregroundColor(.blue)
+            }
+            
+            // Validate button
+            Button(action: {
+                Task {
+                    await validateRecoveryPhrase()
+                }
+            }) {
+                HStack {
+                    if isValidating {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                        Text("Validating...")
+                    } else {
+                        Text("Validate Recovery Phrase")
+                        Image(systemName: "checkmark.shield")
+                    }
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(
+                    LinearGradient(
+                        colors: canValidate ? [.blue, .purple] : 
+                               [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(15)
+            }
+            .disabled(!canValidate || isValidating)
+        }
+    }
+    
+    // MARK: - New Cyphr ID Input
+    
+    private var newCyphrIdInput: some View {
         VStack(spacing: 25) {
             VStack(spacing: 15) {
                 Text("Enter Your Cyphr ID")
                     .font(.headline)
                     .foregroundColor(.white)
                 
-                Text("Login with your unique identifier")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            
-            // Cyphr ID input
-            HStack {
-                Text("@")
-                    .font(.title2)
-                    .foregroundColor(.purple)
-                
-                TextField("yourname", text: $viewModel.cyphrIdInput)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    #if os(iOS)
-                    .autocapitalization(.none)
-                    #endif
-                    .disableAutocorrection(true)
-                    .focused($isInputFocused)
-                
-                if viewModel.isVerifying {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isInputFocused ? Color.purple : 
-                                   Color.white.opacity(0.2), lineWidth: 1)
-                    )
-            )
-            
-            // Login button
-            Button(action: {
-                Task {
-                    isLoading = true
-                    loadingMessage = LoadingMessages.authenticating
-                    await viewModel.loginWithCyphrId()
-                    isLoading = false
-                }
-            }) {
-                HStack {
-                    Image(systemName: "faceid")
-                    Text("Login with Face ID")
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(
-                    LinearGradient(
-                        colors: !viewModel.cyphrIdInput.isEmpty ? 
-                               [.purple, .blue] : 
-                               [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(15)
-            }
-            .disabled(viewModel.cyphrIdInput.isEmpty || viewModel.isVerifying)
-            
-            // Alternative: Use Touch ID
-            if viewModel.biometricType == .touchID {
-                Text("or use Touch ID")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
-            }
-        }
-        .onAppear {
-            isInputFocused = true
-        }
-    }
-    
-    // MARK: - Recovery Phrase Login
-    
-    private var recoveryPhraseLoginView: some View {
-        VStack(spacing: 25) {
-            VStack(spacing: 15) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 40))
-                    .foregroundColor(.yellow)
-                
-                Text("Recover Your Identity")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Text("Enter your 12-word recovery phrase to restore access")
+                Text("Enter the Cyphr ID you are recovering. Recovery re-binds your existing @id to this device.")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
             }
             
-            // Recovery phrase input
+            // New Cyphr ID input
             VStack(alignment: .leading, spacing: 10) {
-                Text("Recovery Phrase")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-                
-                TextEditor(text: $viewModel.recoveryPhraseInput)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundColor(.white)
-                    #if os(iOS)
-                    .autocapitalization(.none)
-                    #endif
-                    .disableAutocorrection(true)
-                    .frame(minHeight: 100)
-                    .padding(10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.1))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            )
-                    )
-                
-                Text("Enter all 12 words separated by spaces")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.5))
+                HStack {
+                    Text("@")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                    
+                    TextField("newusername", text: $newCyphrId)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.blue.opacity(0.5), lineWidth: 1)
+                        )
+                )
             }
             
-            // Recover button
+            // Continue button
             Button(action: {
                 Task {
-                    isLoading = true
-                    loadingMessage = LoadingMessages.restoringData
-                    await viewModel.recoverWithPhrase()
-                    isLoading = false
+                    await completeRecovery()
                 }
             }) {
                 HStack {
-                    Image(systemName: "arrow.clockwise")
-                    Text("Recover Identity")
+                    Text("Restore Identity")
+                    Image(systemName: "person.crop.circle.badge.checkmark")
                 }
                 .font(.headline)
                 .foregroundColor(.white)
@@ -320,8 +336,7 @@ struct CyphrIdLoginView: View {
                 .padding()
                 .background(
                     LinearGradient(
-                        colors: viewModel.isValidRecoveryPhrase ? 
-                               [.purple, .blue] : 
+                        colors: !newCyphrId.isEmpty ? [.blue, .purple] : 
                                [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
                         startPoint: .leading,
                         endPoint: .trailing
@@ -329,276 +344,251 @@ struct CyphrIdLoginView: View {
                 )
                 .cornerRadius(15)
             }
-            .disabled(!viewModel.isValidRecoveryPhrase || viewModel.isVerifying)
-            
-            // Warning
-            Label("This will replace any existing identity on this device", 
-                  systemImage: "exclamationmark.triangle")
-                .font(.caption)
-                .foregroundColor(.orange.opacity(0.8))
+            .disabled(newCyphrId.isEmpty || isRecovering)
         }
     }
     
-    // MARK: - Zero Knowledge Info
+    // MARK: - Security Setup Section
     
-    private var zeroKnowledgeInfo: some View {
-        VStack(spacing: 15) {
-            Divider()
-                .background(Color.white.opacity(0.2))
-            
-            VStack(spacing: 10) {
-                Label("Zero server knowledge", systemImage: "eye.slash")
-                Label("End-to-end encrypted", systemImage: "lock.shield")
-                Label("No passwords stored", systemImage: "key.slash")
-            }
-            .font(.caption)
-            .foregroundColor(.white.opacity(0.5))
-            
-            Button(action: { dismiss() }) {
-                Text("Cancel")
-                    .font(.callout)
+    private var securitySetupSection: some View {
+        VStack(spacing: 25) {
+            VStack(spacing: 15) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 50))
+                    .foregroundColor(.green)
+                
+                Text("Identity Restored!")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("Now set up security for this device")
+                    .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
+            }
+            
+            Button(action: {
+                showingSecuritySetup = true
+            }) {
+                HStack {
+                    Text("Set Up Security")
+                    Image(systemName: "faceid")
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(
+                    LinearGradient(
+                        colors: [.green, .blue],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(15)
+            }
+        }
+    }
+    
+    // MARK: - Completion View
+    
+    private var completionView: some View {
+        VStack(spacing: 30) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 80))
+                .foregroundColor(.green)
+            
+            Text("Welcome Back!")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            Text("@\(newCyphrId)")
+                .font(.title)
+                .fontWeight(.semibold)
+                .foregroundColor(.blue)
+            
+            VStack(spacing: 15) {
+                Label("Identity restored on this device", 
+                      systemImage: "checkmark.shield.fill")
+                Label("Wallet addresses recovered", 
+                      systemImage: "creditcard.fill")
+                Label("Security settings configured", 
+                      systemImage: "lock.fill")
+            }
+            .font(.callout)
+            .foregroundColor(.white.opacity(0.8))
+            
+            Button(action: {
+                // Complete recovery and navigate to main app
+                completeRecoveryFlow()
+            }) {
+                Text("Start Messaging")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(15)
             }
             .padding(.top)
         }
     }
-}
-
-// MARK: - View Model
-
-class CyphrIdLoginViewModel: ObservableObject {
-    @Published var cyphrIdInput = ""
-    @Published var recoveryPhraseInput = ""
-    @Published var isVerifying = false
-    @Published var showError = false
-    @Published var errorMessage = ""
-    @Published var showBiometricSetup = false
-    @Published var biometricType: LABiometryType = .none
     
-    private let cyphrIdentity = CyphrIdentity.shared
-    private let networkService = NetworkService.shared
-    private let authService = AuthenticationService.shared
+    // MARK: - Helper Properties
     
-    init() {
-        checkBiometricType()
+    private var canValidate: Bool {
+        recoveryWords.allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
     
-    var isValidRecoveryPhrase: Bool {
-        let words = recoveryPhraseInput
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-        return words.count == 12
-    }
+    // MARK: - Actions
     
-    private func checkBiometricType() {
-        let context = LAContext()
-        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
-        biometricType = context.biometryType
-    }
-    
-    func clearInputs() {
-        cyphrIdInput = ""
-        recoveryPhraseInput = ""
-    }
-    
-    @MainActor
-    func loginWithCyphrId() async {
-        isVerifying = true
-        
-        do {
-            // Verify Cyphr ID exists
-            let userInfo = try await networkService.lookupCyphrId(cyphrId: cyphrIdInput)
-            
-            guard userInfo.exists else {
-                throw AuthError.userNotFound
+    private func distributeWords(_ words: [String], startingAt index: Int) {
+        for (offset, word) in words.enumerated() {
+            let targetIndex = index + offset
+            if targetIndex < 12 {
+                recoveryWords[targetIndex] = word.lowercased()
             }
-            
-            let loginResult = try await authService.loginWithCyphrId(cyphrId: cyphrIdInput)
-
-            if loginResult.success {
-                UserDefaults.standard.set(cyphrIdInput, forKey: "cyphr_id")
-                UserDefaults.standard.set(loginResult.token, forKey: "auth_token")
-
-                await MainActor.run {
-                    NotificationCenter.default.post(
-                        name: Notification.Name("UserLoggedIn"),
-                        object: nil,
-                        userInfo: ["cyphrId": cyphrIdInput]
-                    )
-                }
-            }
-        } catch let authError as AuthError {
-            errorMessage = authError.localizedDescription
-            showError = true
-        } catch {
-            errorMessage = "Login failed: \(error.localizedDescription)"
-            showError = true
         }
         
-        isVerifying = false
+        // Move focus to next empty field or last field
+        let nextEmptyIndex = recoveryWords.firstIndex { $0.isEmpty }
+        focusedWordIndex = nextEmptyIndex ?? 11
     }
     
-    @MainActor
-    func recoverWithPhrase() async {
-        isVerifying = true
-        
-        do {
-            let words = recoveryPhraseInput
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: .whitespacesAndNewlines)
+    private func pasteFromClipboard() {
+        #if os(iOS)
+        if let clipboardString = UIPasteboard.general.string {
+            let words = clipboardString.components(separatedBy: .whitespaces)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
                 .filter { !$0.isEmpty }
             
-            guard words.count == 12 else {
-                throw AuthError.invalidRecoveryPhrase
-            }
-            
-            // Recover identity from phrase
-            let identity = try await cyphrIdentity.recoverFromPhrase(words)
-            
-            // Register recovered identity with backend
-            #if os(iOS)
-            let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-            let deviceModel = UIDevice.current.model
-            let osVersion = UIDevice.current.systemVersion
-            #else
-            let deviceId = UUID().uuidString
-            let deviceModel = "macOS"
-            let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
-            #endif
-            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-            
-            let deviceInfo = DeviceInfo(
-                deviceId: deviceId,
-                deviceModel: deviceModel,
-                osVersion: osVersion,
-                appVersion: appVersion
-            )
-            let registered = try await networkService.registerCyphrIdentity(
-                cyphrId: identity.cyphrId,
-                publicKey: identity.publicKey,
-                deviceInfo: deviceInfo
-            )
-            
-            if registered.success {
-                // Store credentials
-                UserDefaults.standard.set(identity.cyphrId, forKey: "cyphr_id")
-                
-                // Setup biometrics for future logins
-                showBiometricSetup = true
-            }
-        } catch {
-            errorMessage = "Recovery failed: \(error.localizedDescription)"
-            showError = true
-        }
-        
-        isVerifying = false
-    }
-}
-
-// MARK: - Biometric Setup View
-
-struct BiometricSetupView: View {
-    let cyphrId: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var setupComplete = false
-    
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.07, green: 0.08, blue: 0.12),
-                    Color(red: 0.05, green: 0.06, blue: 0.10)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            VStack(spacing: 30) {
-                Image(systemName: setupComplete ? "checkmark.circle.fill" : "faceid")
-                    .font(.system(size: 80))
-                    .foregroundColor(setupComplete ? .green : .purple)
-                
-                Text(setupComplete ? "Setup Complete!" : "Setup Biometric Login")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Text("Use Face ID for quick access to @\(cyphrId)")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                
-                if !setupComplete {
-                    Button(action: {
-                        Task {
-                            await setupBiometrics()
-                        }
-                    }) {
-                        Text("Enable Face ID")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [.purple, .blue],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(15)
-                    }
-                } else {
-                    Button(action: {
-                        dismiss()
-                        // Navigate to main app
-                        NotificationCenter.default.post(
-                            name: Notification.Name("UserLoggedIn"),
-                            object: nil
-                        )
-                    }) {
-                        Text("Continue to App")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.green)
-                            .cornerRadius(15)
-                    }
-                }
-                
-                Button(action: { dismiss() }) {
-                    Text("Skip for now")
-                        .foregroundColor(.white.opacity(0.7))
+            if words.count >= 12 {
+                for i in 0..<min(12, words.count) {
+                    recoveryWords[i] = words[i]
                 }
             }
-            .padding(40)
         }
+        #endif
     }
     
     @MainActor
-    private func setupBiometrics() async {
+    private func validateRecoveryPhrase() async {
+        isValidating = true
+        
         do {
-            try await CyphrIdentity.shared.bindToDevice()
-            withAnimation {
-                setupComplete = true
+            // Clean and validate words
+            let cleanedWords = recoveryWords.map { 
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             }
+            
+            // Validate phrase by attempting to reconstruct identity
+            _ = try await cyphrIdentity.recoverFromPhrase(cleanedWords)
+            
+            print("✅ Recovery phrase validated successfully")
+            
+            // Move to next step
+            withAnimation {
+                currentStep = .chooseNewId
+            }
+            
         } catch {
-            // Handle error
-            print("Failed to setup biometrics: \(error)")
+            print("❌ Recovery phrase validation failed: \(error)")
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+        
+        isValidating = false
+    }
+    
+    @MainActor
+    private func completeRecovery() async {
+        isRecovering = true
+        
+        do {
+            // Store recovered identity with new Cyphr ID
+            let cleanedWords = recoveryWords.map { 
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            }
+            
+            let result = try await AuthenticationService.shared.recoverIdentity(
+                cyphrId: newCyphrId,
+                recoveryPhrase: cleanedWords
+            )
+
+            print("✅ Recovery completed for @\(result.cyphrId)")
+            newCyphrId = result.cyphrId
+
+            // Move to security setup
+            withAnimation {
+                currentStep = .securitySetup
+            }
+            
+        } catch {
+            print("❌ Recovery completion failed: \(error)")
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+        
+        isRecovering = false
+    }
+    
+    private func completeRecoveryFlow() {
+        // Notify authentication manager of successful recovery
+        NotificationCenter.default.post(
+            name: Notification.Name("UserLoggedIn"),
+            object: nil,
+            userInfo: [
+                "cyphrId": newCyphrId,
+                "token": AuthTokenStore.load() ?? ""
+            ]
+        )
+        
+        // Dismiss view
+        dismiss()
+    }
+}
+
+// MARK: - Supporting Types
+
+enum RecoveryStep: Int, CaseIterable {
+    case enterPhrase = 0
+    case chooseNewId = 1
+    case securitySetup = 2
+    case complete = 3
+    
+    var title: String {
+        switch self {
+        case .enterPhrase: return "Phrase"
+        case .chooseNewId: return "Identity"
+        case .securitySetup: return "Security"
+        case .complete: return "Complete"
         }
     }
 }
 
-// MARK: - Auth Errors
-// Using AuthError from AuthenticationService.swift
+enum RecoveryError: LocalizedError {
+    case registrationFailed(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .registrationFailed(let message):
+            return "Registration failed: \(message)"
+        }
+    }
+}
 
 // MARK: - Preview
 
 struct CyphrIdLoginView_Previews: PreviewProvider {
     static var previews: some View {
         CyphrIdLoginView()
+            .environmentObject(AuthenticationManager())
     }
 }

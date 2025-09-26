@@ -8,6 +8,7 @@ struct ChatsView: View {
     @State private var showingNewChat = false
     @State private var showingProfile = false
     @State private var selectedChat: Chat?
+    @State private var presentedCall: CallSession?
     
     var body: some View {
         NavigationView {
@@ -24,10 +25,7 @@ struct ChatsView: View {
                 .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    // Custom navigation header
-                    customHeader
-                    
-                    // Search bar
+                    // Search bar (clean, glass)
                     searchBar
                     
                     // Chats list
@@ -36,6 +34,11 @@ struct ChatsView: View {
                     } else {
                         chatsList
                     }
+                }
+
+                if messagingService.isConnecting {
+                    LoadingOverlay(message: "Connecting to Cyphr Network...")
+                        .transition(.opacity)
                 }
             }
             #if os(iOS)
@@ -50,82 +53,87 @@ struct ChatsView: View {
             .sheet(item: $selectedChat) { chat in
                 ChatDetailView(chat: chat)
             }
+            .overlay(alignment: .top) {
+                if let overlaySession = callOverlaySession {
+                    CallOverlayView(
+                        session: overlaySession,
+                        onAccept: overlaySession.direction == .incoming ? {
+                            answerCall(session: overlaySession, accept: true)
+                        } : nil,
+                        onDecline: {
+                            if overlaySession.direction == .incoming {
+                                answerCall(session: overlaySession, accept: false)
+                            } else {
+                                messagingService.endCall(callId: overlaySession.id)
+                            }
+                        },
+                        onToggleMute: nil
+                    )
+                    .padding(.top, 80)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
         }
         .onAppear {
             messagingService.connect()
         }
-    }
-    
-    // MARK: - Custom Header
-    
-    private var customHeader: some View {
-        HStack {
-            // Profile button
-            Button(action: { showingProfile = true }) {
-                Image(systemName: "person.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.white.opacity(0.9))
+        .onReceive(messagingService.$activeCall) { session in
+            guard let session else {
+                presentedCall = nil
+                return
             }
-            
-            Spacer()
-            
-            // Title
-            VStack(spacing: 2) {
-                Text("Chats")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                if messagingService.isConnected {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 6, height: 6)
-                        Text("Quantum Secured")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                } else {
-                    Text("Connecting...")
-                        .font(.caption)
-                        .foregroundColor(.yellow.opacity(0.7))
-                }
-            }
-            
-            Spacer()
-            
-            // New chat button
-            Button(action: { showingNewChat = true }) {
-                Image(systemName: "square.and.pencil")
-                    .font(.title2)
-                    .foregroundColor(.white.opacity(0.9))
+
+            switch session.state {
+            case .connecting, .active:
+                presentedCall = session
+            case .ended, .failed:
+                presentedCall = nil
+                messagingService.activeCall = nil
+            default:
+                break
             }
         }
-        .padding()
-        .background(
-            // Glassmorphism effect
-            Color.white.opacity(0.1)
-                .background(.ultraThinMaterial)
-        )
+        .sheet(item: $presentedCall, onDismiss: {
+            if let call = presentedCall {
+                messagingService.endCall(callId: call.id)
+            }
+        }) { session in
+            CallView(session: session)
+        }
     }
+    
+    // Header удалён по дизайну — оставляем чистый экран
     
     // MARK: - Search Bar
     
     private var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.white.opacity(0.5))
-            
-            TextField("Search chats...", text: $searchText)
+        ZStack(alignment: .leading) {
+            // Placeholder custom, чтобы не было серого
+            if searchText.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(Color.white.opacity(0.5))
+                    Text("Search chats…")
+                        .foregroundColor(Color.white.opacity(0.5))
+                }
+                .padding(.horizontal, 16)
+            }
+            TextField("", text: $searchText)
                 .foregroundColor(.white)
-                .accentColor(.purple)
+                .tint(.white)
+                .padding(.horizontal, 16)
+                .frame(height: 44)
         }
-        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.1))
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
         )
         .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.top, 12)
     }
     
     // MARK: - Chats List
@@ -186,17 +194,17 @@ struct ChatsView: View {
             Button(action: { showingNewChat = true }) {
                 Label("Start New Chat", systemImage: "plus.message.fill")
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundColor(.white)
                     .padding()
                     .background(
                         LinearGradient(
-                            colors: [.white, .white.opacity(0.9)],
+                            colors: [Color.purple, Color.blue],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .cornerRadius(16)
-                    .shadow(color: .white.opacity(0.3), radius: 10)
+                    .shadow(color: Color.purple.opacity(0.6), radius: 16)
             }
             
             Spacer()
@@ -216,6 +224,24 @@ struct ChatsView: View {
                 (chat.lastMessage?.content ?? "").localizedCaseInsensitiveContains(searchText)
             }
         }
+    }
+}
+
+// MARK: - Call helpers
+
+extension ChatsView {
+    private var callOverlaySession: CallSession? {
+        guard let session = messagingService.activeCall else { return nil }
+        switch session.state {
+        case .dialing, .ringing:
+            return session
+        case .connecting, .active, .ended, .failed:
+            return nil
+        }
+    }
+
+    private func answerCall(session: CallSession, accept: Bool) {
+        messagingService.answerCall(callId: session.id, accept: accept)
     }
 }
 

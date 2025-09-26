@@ -1,614 +1,578 @@
 import Foundation
-import Combine
+import Network
 #if os(iOS)
 import UIKit
 #endif
 
-struct GroupInfo: Codable {
-    let id: String
-    let name: String
-    let description: String?
-    let memberCount: Int
-    let isPublic: Bool
-}
-
-/// AWS Backend API Service
-/// Connects to production backend at app.cyphrmessenger.app
+/// NetworkService - Handles all API communication with Cyphr backend
+/// Zero-knowledge protocol: only public keys and encrypted blobs
 class NetworkService: ObservableObject {
-    
-    // MARK: - Properties
     static let shared = NetworkService()
     
-    let baseURL = "https://app.cyphrmessenger.app/api"
-    private let session: URLSession
-    private var cancellables = Set<AnyCancellable>()
+    // MARK: - Configuration
     
-    @Published var isAuthenticated = false
-    @Published var currentUser: User?
-    @Published var isConnected = false
+    private let baseURL = "https://app.cyphrmessenger.app"
+    private let session: URLSession
+    private let monitor = NWPathMonitor()
+    
+    @Published var isConnected = true
     @Published var connectionError: String?
     
     // MARK: - Initialization
+    
     private init() {
-        // Configure session for production
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 60
-        configuration.waitsForConnectivity = false
-        configuration.allowsCellularAccess = true
-        configuration.allowsConstrainedNetworkAccess = true
-        configuration.allowsExpensiveNetworkAccess = true
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        config.timeoutIntervalForResource = 60.0
+        self.session = URLSession(configuration: config)
         
-        self.session = URLSession(configuration: configuration)
-        
-        print("🌐 Network Service initialized with: \(baseURL)")
-        print("   Using custom URLSession configuration for better reliability")
-        
-        // DON'T test connectivity in init() - it won't execute reliably
-        // Instead, call testConnectivity() explicitly when needed
+        startNetworkMonitoring()
+        print("🌐 NetworkService initialized - Backend: \(baseURL)")
     }
     
-    // MARK: - Public Methods
-    
-    /// Test backend connectivity - MUST be called explicitly
-    @MainActor
-    func testConnectivity() async -> Bool {
-        print("🔥 Testing backend connectivity...")
-        connectionError = nil
+    private func startNetworkMonitoring() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.isConnected = path.status == .satisfied
+                if path.status != .satisfied {
+                    self?.connectionError = "No internet connection"
+                } else {
+                    self?.connectionError = nil
+                }
+            }
+        }
         
+        let queue = DispatchQueue(label: "NetworkMonitor")
+        monitor.start(queue: queue)
+    }
+    
+    // MARK: - Test Connectivity
+    
+    func testConnectivity() async -> Bool {
         do {
-            // Test 1: Simple health check
-            let healthURL = URL(string: "\(baseURL)/health")!
-            print("   Testing: \(healthURL)")
-            
-            var request = URLRequest(url: healthURL)
-            request.httpMethod = "GET"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.timeoutInterval = 10
-            
-            let (data, response) = try await session.data(for: request)
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                print("✅ Backend health check: \(httpResponse.statusCode)")
-                if let responseString = String(data: data, encoding: .utf8) {
-                    print("   Response: \(responseString)")
-                }
-                
-                if httpResponse.statusCode == 200 {
-                    isConnected = true
-                    
-                    // Test 2: Cyphr ID check
-                    print("🔥 Testing Cyphr ID endpoint...")
-                    let testResponse = try await checkCyphrIdAvailability("test_connection_\(Int.random(in: 1000...9999))")
-                    print("✅ Cyphr ID check works! Available: \(testResponse.available)")
-                    return true
-                }
-            }
-            
-            isConnected = false
-            connectionError = "Backend returned non-200 status"
-            return false
-            
+            _ = try await makeRequest(endpoint: "/api/health", method: "GET")
+            print("✅ Backend connectivity test successful")
+            return true
         } catch {
-            isConnected = false
-            print("❌ Backend connection failed!")
-            print("   Error: \(error)")
-            print("   Type: \(type(of: error))")
-            print("   Description: \(error.localizedDescription)")
-            
-            if let urlError = error as? URLError {
-                print("   URL Error Code: \(urlError.code.rawValue)")
-                switch urlError.code {
-                case .notConnectedToInternet:
-                    connectionError = "No internet connection"
-                    print("   ⚠️ No internet connection!")
-                case .cannotFindHost:
-                    connectionError = "Cannot find server"
-                    print("   ⚠️ Cannot find host: app.cyphrmessenger.app")
-                case .cannotConnectToHost:
-                    connectionError = "Cannot connect to server"
-                    print("   ⚠️ Cannot connect to host!")
-                case .timedOut:
-                    connectionError = "Request timed out"
-                    print("   ⚠️ Request timed out!")
-                case .appTransportSecurityRequiresSecureConnection:
-                    connectionError = "ATS security issue"
-                    print("   ⚠️ ATS blocking non-secure connection!")
-                default:
-                    connectionError = "Network error: \(urlError.code)"
-                    print("   ⚠️ Other URL error: \(urlError.code)")
-                }
-            } else {
-                connectionError = error.localizedDescription
-            }
-            
+            print("❌ Backend connectivity test failed: \(error)")
             return false
         }
     }
     
-    // MARK: - Authentication
-    
-    /// Register new Cyphr Identity
-    func registerCyphrIdentity(cyphrId: String, publicKey: String, deviceInfo: DeviceInfo) async throws -> AuthResponse {
-        let endpoint = "\(baseURL)/cyphr-id/register"
-        
-        // Canonical signature with device-bound payload
-        let deviceFingerprint = deviceInfo.deviceId
-        let signature = try await CyphrIdentity.shared.signRegistrationPayload(
-            cyphrId: cyphrId,
-            publicKey: publicKey,
-            deviceFingerprint: deviceFingerprint
-        )
-        let body = [
-            "cyphrId": cyphrId,
-            "publicKey": publicKey,
-            "deviceFingerprint": deviceFingerprint,
-            "displayName": cyphrId,
-            "signature": signature
-        ]
-        
-        return try await post(endpoint: endpoint, body: body)
-    }
-    
-    /// Login with existing Cyphr Identity
-    func loginCyphrIdentity(cyphrId: String, signature: String) async throws -> AuthResponse {
-        let endpoint = "\(baseURL)/cyphr-id/login"
-        
-        let body = [
-            "cyphrId": cyphrId,
-            "signature": signature,
-            "deviceFingerprint": DeviceInfo.current.deviceId
-        ]
-        
-        return try await post(endpoint: endpoint, body: body)
+    // MARK: - Challenge-Response Authentication (v5.0 spec)
+
+    func getChallenge(for cyphrId: String) async throws -> ChallengeResponse {
+        print("🎲 Getting challenge for @\(cyphrId)")
+
+        let endpoint = "/api/cyphr-id/challenge?cyphrId=\(cyphrId)"
+        let response = try await makeRequest(endpoint: endpoint, method: "GET", includeAuth: false)
+
+        return try JSONDecoder().decode(ChallengeResponse.self, from: response)
     }
 
-    /// Legacy P256 login (temporary enterprise fallback)
-    func loginCyphrIdentityP256(cyphrId: String, signatureDER: String) async throws -> AuthResponse {
-        let endpoint = "\(baseURL)/cyphr-id/login"
-        let body = [
+    // MARK: - Recovery Flow (v5.0 spec)
+
+    func initiateRecovery(
+        cyphrId: String,
+        newDeviceBindingPublicKey: String? = nil,
+        newDeviceFingerprintHash: String? = nil
+    ) async throws -> RecoveryInitResponse {
+        print("🔄 Initiating recovery for @\(cyphrId)")
+
+        var params: [String: Any] = [ "cyphrId": cyphrId ]
+        if let newDeviceBindingPublicKey { params["newDeviceBindingPublicKey"] = newDeviceBindingPublicKey }
+        if let newDeviceFingerprintHash { params["newDeviceFingerprintHash"] = newDeviceFingerprintHash }
+
+        let response = try await makeRequest(endpoint: "/api/cyphr-id/recovery/init", method: "POST", body: params, includeAuth: false)
+        return try JSONDecoder().decode(RecoveryInitResponse.self, from: response)
+    }
+
+    func confirmRecovery(
+        cyphrId: String,
+        challengeId: String,
+        recoverySignature: String
+    ) async throws -> AuthResponse {
+        print("✅ Confirming recovery for @\(cyphrId)")
+
+        let params: [String: Any] = [
+            "cyphrId": cyphrId,
+            "challengeId": challengeId,
+            "recoverySignature": recoverySignature
+        ]
+
+        let response = try await makeRequest(endpoint: "/api/cyphr-id/recovery/confirm", method: "POST", body: params, includeAuth: false)
+        return try JSONDecoder().decode(AuthResponse.self, from: response)
+    }
+
+    // MARK: - Cyphr ID Management
+
+    func checkCyphrIdAvailability(_ cyphrId: String) async throws -> CyphrIdCheckResponse {
+        print("🔍 Checking availability for @\(cyphrId)")
+        
+        let params = ["cyphrId": cyphrId]
+        let response = try await makeRequest(endpoint: "/api/cyphr-id/check", method: "POST", body: params, includeAuth: false)
+        
+        return try JSONDecoder().decode(CyphrIdCheckResponse.self, from: response)
+    }
+    
+    func registerCyphrIdentity(
+        cyphrId: String,
+        publicKey: String,
+        kyberPublicKey: String,
+        deviceInfo: DeviceInfo,
+        deviceBindingPublicKey: String,
+        deviceFingerprintHash: String,
+        securityLevel: String = "biometry",
+        signature: String
+    ) async throws -> AuthResponse {
+        print("📝 Registering @\(cyphrId) with backend")
+
+        // v5.0 spec: send explicit fields for keys and device binding
+        let params: [String: Any] = [
+            "cyphrId": cyphrId,
+            "ed25519AuthPublicKey": publicKey,
+            "kyberPublicKey": kyberPublicKey,
+            "deviceBindingPublicKey": deviceBindingPublicKey,
+            "deviceFingerprintHash": deviceFingerprintHash,
+            "securityLevel": securityLevel,
+            // keep telemetry/device info if server logs/uses them
+            "deviceId": deviceInfo.deviceId,
+            "deviceModel": deviceInfo.deviceModel,
+            "osVersion": deviceInfo.osVersion,
+            "appVersion": deviceInfo.appVersion,
+            // optional registration signature (server may ignore)
+            "signature": signature
+        ]
+
+        let response = try await makeRequest(endpoint: "/api/cyphr-id/register", method: "POST", body: params, includeAuth: false)
+        
+        return try JSONDecoder().decode(AuthResponse.self, from: response)
+    }
+    
+    func loginCyphrIdentity(
+        cyphrId: String,
+        authSignature: String,
+        challengeId: String,
+        deviceSignature: String? = nil,
+        deviceBindingPublicKey: String? = nil,
+        challengePlain: String? = nil
+    ) async throws -> AuthResponse {
+        print("🔓 Logging in @\(cyphrId)")
+
+        var params: [String: Any] = [
+            "cyphrId": cyphrId,
+            "authSignature": authSignature,
+            "challengeId": challengeId
+        ]
+
+        // v5.0: Add dual signature params if provided
+        if let deviceSig = deviceSignature { params["deviceSignature"] = deviceSig }
+        if let devicePub = deviceBindingPublicKey { params["deviceBindingPublicKey"] = devicePub }
+        if let challengePlain = challengePlain { params["challenge"] = challengePlain }
+
+        let response = try await makeRequest(endpoint: "/api/cyphr-id/login", method: "POST", body: params, includeAuth: false)
+
+        return try JSONDecoder().decode(AuthResponse.self, from: response)
+    }
+    
+    func loginCyphrIdentityP256(
+        cyphrId: String,
+        signatureDER: String,
+        deviceFingerprint: String
+    ) async throws -> AuthResponse {
+        print("🔓 Logging in @\(cyphrId) with P256 fallback")
+        
+        let params: [String: Any] = [
             "cyphrId": cyphrId,
             "signatureDER": signatureDER,
-            "deviceFingerprint": DeviceInfo.current.deviceId
+            "keyType": "P256",
+            "deviceFingerprint": deviceFingerprint
         ]
-        return try await post(endpoint: endpoint, body: body)
+        
+        let response = try await makeRequest(endpoint: "/api/cyphr-id/login", method: "POST", body: params, includeAuth: false)
+
+        return try JSONDecoder().decode(AuthResponse.self, from: response)
     }
     
-    /// Check Cyphr ID availability
-    func checkCyphrIdAvailability(_ cyphrId: String) async throws -> CyphrIdCheckResponse {
-        let endpoint = "\(baseURL)/cyphr-id/check"
-        let body = ["cyphrId": cyphrId]
-        
-        print("🔍 Checking Cyphr ID availability:")
-        print("   Endpoint: \(endpoint)")
-        print("   Cyphr ID: \(cyphrId)")
-        
-        do {
-            let response: CyphrIdCheckResponse = try await post(endpoint: endpoint, body: body)
-            print("✅ Check successful: available=\(response.available)")
-            return response
-        } catch {
-            print("❌ Check failed: \(error)")
-            throw error
-        }
-    }
-    
-    /// Check user status (PIN/Biometry)
-    func checkUserStatus(cyphrId: String) async throws -> UserStatus {
-        let endpoint = "\(baseURL)/auth/check-pin"
-        let body = ["cyphrId": cyphrId]
-        return try await post(endpoint: endpoint, body: body)
-    }
-    
-    /// Delete Cyphr Identity from database
-    func deleteCyphrIdentity(cyphrId: String) async throws -> Bool {
-        let endpoint = "\(baseURL)/api/cyphr-id/delete"
-        let body = ["cyphr_id": cyphrId]
-        
-        do {
-            struct DeleteResponse: Codable {
-                let success: Bool
+    func lookupCyphrId(cyphrId: String) async throws -> UserLookupResponse {
+        print("🔍 Looking up @\(cyphrId)")
+
+        // Server exposes GET /api/cyphr-id/user/:cyphrId returning { success, user: { id, cyphr_id, ... } }
+        let endpoint = "/api/cyphr-id/user/\(cyphrId)"
+        let data = try await makeRequest(endpoint: endpoint, method: "GET", includeAuth: false)
+
+        struct Envelope: Decodable {
+            struct UserRecord: Decodable {
+                let id: StringOrInt
+                let cyphr_id: String
+                let public_key: String?
+                let kyber_public_key: String?
             }
-            let response: DeleteResponse = try await post(endpoint: endpoint, body: body)
-            return response.success
-        } catch {
-            print("❌ Failed to delete identity: \(error)")
-            return false
+            let success: Bool
+            let user: UserRecord?
+        }
+
+        let env = try JSONDecoder().decode(Envelope.self, from: data)
+        if let user = env.user {
+            let userIdString = user.id.stringValue
+            return UserLookupResponse(exists: true, cyphrId: user.cyphr_id, userId: userIdString)
+        } else {
+            return UserLookupResponse(exists: false, cyphrId: cyphrId)
         }
     }
     
-    // MARK: - Messaging (E2E Encrypted with Kyber1024 + ChaCha20)
+    // MARK: - Public Key Management
     
-    /// Get user's public key for encryption
-    func getPublicKey(for cyphrId: String) async throws -> String {
-        let endpoint = "\(baseURL)/api/messaging/get-public-key"
-        let body = ["cyphr_id": cyphrId]
-        
-        struct PublicKeyResponse: Codable {
-            let publicKey: String
-            let kyberPublicKey: String
+    func getPublicKey(for cyphrId: String) async throws -> PublicKeyResponse {
+        print("🔑 Getting public key for @\(cyphrId)")
+
+        // Reuse the user lookup endpoint and map fields
+        let endpoint = "/api/cyphr-id/user/\(cyphrId)"
+        let data = try await makeRequest(endpoint: endpoint, method: "GET", includeAuth: false)
+
+        struct Envelope: Decodable {
+            struct UserRecord: Decodable {
+                let cyphr_id: String
+                let public_key: String?
+                let kyber_public_key: String?
+            }
+            let success: Bool
+            let user: UserRecord?
         }
-        
-        let response: PublicKeyResponse = try await post(endpoint: endpoint, body: body)
-        return response.kyberPublicKey // Return Kyber1024 public key for post-quantum encryption
+
+        let env = try JSONDecoder().decode(Envelope.self, from: data)
+        guard let user = env.user,
+              let pub = user.public_key ?? user.kyber_public_key else {
+            throw NetworkError.notFound
+        }
+        return PublicKeyResponse(cyphrId: user.cyphr_id, publicKey: pub, kyberPublicKey: user.kyber_public_key)
     }
     
-    /// Generate Kyber1024 keys for user
-    func generateMessagingKeys() async throws -> MessagingKeysResponse {
-        let endpoint = "\(baseURL)/messaging/generate-keys"
-        let body: [String: String] = [:]
-        return try await post(endpoint: endpoint, body: body)
-    }
+    // MARK: - Messaging
     
-    /// Send encrypted message with Kyber1024 + ChaCha20
-    func sendEncryptedMessage(chatId: String, content: String, recipientId: String) async throws -> SendMessageResponse {
-        let endpoint = "\(baseURL)/messaging/send"
-        
-        let body: [String: Any] = [
-            "chatId": chatId,
-            "content": content,
-            "recipientId": recipientId
-        ]
-        
-        return try await post(endpoint: endpoint, body: body)
-    }
-    
-    /// Decrypt message using private key
-    func decryptMessage(messageId: String, secretKey: String) async throws -> DecryptedMessageResponse {
-        let endpoint = "\(baseURL)/messaging/decrypt"
-        
-        let body: [String: String] = [
-            "messageId": messageId,
-            "secretKey": secretKey
-        ]
-        
-        return try await post(endpoint: endpoint, body: body)
-    }
-    
-    /// Get encrypted chat messages
-    func getEncryptedMessages(chatId: String) async throws -> MessagesResponse {
-        let endpoint = "\(baseURL)/messaging/chat/\(chatId)"
-        return try await get(endpoint: endpoint)
-    }
-    
-    /// Create encrypted chat
-    func createEncryptedChat(participantIds: [String], chatName: String?, chatType: String = "direct") async throws -> CreateChatResponse {
-        let endpoint = "\(baseURL)/messaging/create-chat"
-        
-        let body: [String: Any] = [
+    func createEncryptedChat(participantIds: [String], chatName: String?, chatType: String) async throws -> CreateChatResponse {
+        let params: [String: Any] = [
             "participantIds": participantIds,
             "chatName": chatName ?? "Encrypted Chat",
             "chatType": chatType
         ]
+
+        let response = try await makeRequest(endpoint: "/api/messaging/create-chat", method: "POST", body: params)
+        return try JSONDecoder().decode(CreateChatResponse.self, from: response)
+    }
+
+    func getEncryptedMessages(chatId: String) async throws -> MessagesResponse {
+        let data = try await makeRequest(endpoint: "/api/messaging/chat/\(chatId)", method: "GET")
+        return try JSONDecoder().decode(MessagesResponse.self, from: data)
+    }
+
+    func generateMessagingKeys() async throws -> MessagingKeysResponse {
+        let response = try await makeRequest(endpoint: "/api/messaging/generate-keys", method: "POST", body: [:])
+        return try JSONDecoder().decode(MessagingKeysResponse.self, from: response)
+    }
+
+    func sendMessage(_ message: HybridEncryptedPayload, to recipientId: String) async throws -> MessageResponse {
+        print("💬 Sending message to @\(recipientId)")
         
-        return try await post(endpoint: endpoint, body: body)
-    }
-    
-    /// Get user chats (legacy - for backward compatibility)
-    func getChats() async throws -> [Chat] {
-        let endpoint = "\(baseURL)/chats"
-        return try await get(endpoint: endpoint)
-    }
-    
-    // MARK: - User Discovery
-    
-    /// Search users (zero-knowledge)
-    func searchUsers(query: String) async throws -> [UserSearchResult] {
-        let endpoint = "\(baseURL)/users/search"
+        let params: [String: Any] = [
+            "recipientId": recipientId,
+            "encryptedPayload": [
+                "kyberCiphertext": message.kyberCiphertext,
+                "ciphertext": message.ciphertext,
+                "nonce": message.nonce,
+                "tag": message.tag
+            ]
+        ]
         
-        // Hash the query for zero-knowledge search
-        let hashedQuery = query.data(using: .utf8)?.sha256Hash().hexEncodedString() ?? ""
+        let response = try await makeRequest(endpoint: "/api/messaging/send", method: "POST", body: params)
         
-        return try await get(endpoint: "\(endpoint)?q=\(hashedQuery)")
+        return try JSONDecoder().decode(MessageResponse.self, from: response)
     }
     
-    // MARK: - Wallet
-    
-    /// Get wallet balance
-    func getWalletBalance(cyphrId: String) async throws -> WalletBalance {
-        let endpoint = "\(baseURL)/wallet/balance/\(cyphrId)"
-        return try await get(endpoint: endpoint)
+    func sendEncryptedMessage(chatId: String, content: String, recipientId: String) async throws -> SendMessageResponse {
+        let params: [String: Any] = [
+            "chatId": chatId,
+            "content": content,
+            "recipientId": recipientId
+        ]
+        let response = try await makeRequest(endpoint: "/api/messaging/send", method: "POST", body: params)
+        return try JSONDecoder().decode(SendMessageResponse.self, from: response)
+    }
+
+    func decryptMessage(messageId: String, secretKey: String) async throws -> DecryptedMessageResponse {
+        let params: [String: Any] = [
+            "messageId": messageId,
+            "secretKey": secretKey
+        ]
+        let response = try await makeRequest(endpoint: "/api/messaging/decrypt", method: "POST", body: params)
+        return try JSONDecoder().decode(DecryptedMessageResponse.self, from: response)
+    }
+
+    func getChatHistory(chatId: String) async throws -> ChatHistoryResponse {
+        print("📜 Getting chat history for \(chatId)")
+        
+        let response = try await makeRequest(endpoint: "/api/messaging/chat/\(chatId)", method: "GET")
+        
+        return try JSONDecoder().decode(ChatHistoryResponse.self, from: response)
     }
     
-    /// Submit transaction
-    func submitTransaction(_ transaction: Transaction) async throws -> TransactionResult {
-        let endpoint = "\(baseURL)/wallet/transaction"
-        return try await post(endpoint: endpoint, body: transaction)
-    }
+    // MARK: - Core Request Method
     
-    // MARK: - WebRTC Signaling
-    
-    /// Get ICE servers for WebRTC
-    func getIceServers() async throws -> IceServersResponse {
-        let endpoint = "\(baseURL)/ice-servers"
-        return try await get(endpoint: endpoint)
-    }
-    
-    // MARK: - Pure Cyphr ID Authentication Methods
-    
-    /// Lookup Cyphr ID
-    func lookupCyphrId(cyphrId: String) async throws -> (exists: Bool, userId: String?) {
-        let normalized = cyphrId.lowercased().replacingOccurrences(of: "@", with: "")
-        // Primary lookup endpoint
-        let primary = "\(baseURL)/users/lookup?cyphrId=\(normalized)"
-        do {
-            let user: User = try await get(endpoint: primary)
-            return (true, user.id)
-        } catch {
-            // Fallback: use /cyphr-id/check and invert available -> exists
-            let checkEndpoint = "\(baseURL)/cyphr-id/check"
-            struct CheckReq: Codable { let cyphrId: String }
-            struct CheckResp: Codable { let available: Bool }
+    private func makeRequest(endpoint: String, method: String, body: [String: Any]? = nil, includeAuth: Bool = true) async throws -> Data {
+        guard let url = URL(string: baseURL + endpoint) else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Add auth token if available and requested
+        if includeAuth, let token = AuthTokenStore.load() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        if let body = body, method != "GET" {
             do {
-                let resp: CheckResp = try await post(endpoint: checkEndpoint, body: ["cyphrId": normalized])
-                return (!resp.available, nil)
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
             } catch {
-                return (false, nil)
+                throw NetworkError.invalidRequest
             }
         }
-    }
-    
-    /// Update discoverability settings
-    func updateDiscoverability(allowCyphrId: Bool, allowPublicKey: Bool) async throws -> Bool {
-        let endpoint = "\(baseURL)/users/discoverability"
-        let body = [
-            "allowCyphrId": allowCyphrId,
-            "allowPublicKey": allowPublicKey
-        ]
-        let response: [String: Bool] = try await post(endpoint: endpoint, body: body)
-        return response["success"] ?? false
-    }
-    
-    /// Discover groups
-    func discoverGroups(query: String) async throws -> [GroupInfo] {
-        let endpoint = "\(baseURL)/groups/discover"
-        let groups: [GroupInfo] = try await get(endpoint: "\(endpoint)?q=\(query)")
-        return groups
-    }
-    
-    /// Join group via invite link
-    func joinGroup(inviteLink: String) async throws -> Bool {
-        let endpoint = "\(baseURL)/groups/join"
-        let body = ["inviteLink": inviteLink]
-        let response: [String: Bool] = try await post(endpoint: endpoint, body: body)
-        return response["success"] ?? false
-    }
-    
-    // MARK: - Zero-Knowledge Discovery Methods
-    
-    /// Query users by hashed Cyphr IDs (zero-knowledge)
-    func queryHashedUsers(cyphrIdHashes: [String]) async throws -> [DiscoveredUser] {
-        let endpoint = "\(baseURL)/users/query-hashed"
-        let body = ["hashes": cyphrIdHashes]
-        let response: [DiscoveredUser] = try await post(endpoint: endpoint, body: body)
-        return response
-    }
-    
-    /// Search users by username
-    func searchUsername(_ username: String) async throws -> [DiscoveredUser] {
-        let endpoint = "\(baseURL)/users/search-username"
-        let response: [DiscoveredUser] = try await get(
-            endpoint: "\(endpoint)?username=\(username)"
-        )
-        return response
-    }
-    
-    /// Check if user exists by Cyphr ID hash
-    func checkUserExists(cyphrIdHash: String) async throws -> Bool {
-        let endpoint = "\(baseURL)/users/check-exists"
-        let response: [String: Bool] = try await get(
-            endpoint: "\(endpoint)?hash=\(cyphrIdHash)"
-        )
-        return response["exists"] ?? false
-    }
-    
-    // MARK: - Private Methods
-    
-    private func get<T: Decodable>(endpoint: String) async throws -> T {
-        guard let url = URL(string: endpoint) else {
-            throw NetworkError.invalidURL
-        }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add auth token if available
-        if let token = UserDefaults.standard.string(forKey: "auth_token") {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw NetworkError.httpError(httpResponse.statusCode)
-        }
-        
-        return try JSONDecoder().decode(T.self, from: data)
-    }
-    
-    private func post<T: Decodable>(endpoint: String, body: Any) async throws -> T {
-        guard let url = URL(string: endpoint) else {
-            print("❌ Invalid URL: \(endpoint)")
-            throw NetworkError.invalidURL
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30 // Explicit timeout
-        
-        // Add auth token if available
-        if let token = UserDefaults.standard.string(forKey: "auth_token") {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        print("📤 POST Request to: \(url)")
-        print("   Headers: \(request.allHTTPHeaderFields ?? [:])")
-        print("   Body: \(body)")
-        print("   Using session: \(session)")
+        print("🌐 \(method) \(endpoint)")
         
         do {
-            print("   Sending request...")
             let (data, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ Invalid response type")
                 throw NetworkError.invalidResponse
             }
             
-            print("📥 Response Code: \(httpResponse.statusCode)")
+            print("📡 Response: \(httpResponse.statusCode)")
             
-            guard (200...299).contains(httpResponse.statusCode) else {
-                let responseString = String(data: data, encoding: .utf8) ?? "No response body"
-                print("❌ HTTP Error \(httpResponse.statusCode): \(responseString)")
-                throw NetworkError.httpError(httpResponse.statusCode)
+            switch httpResponse.statusCode {
+            case 200...299:
+                return data
+            case 400:
+                // Surface message but keep typed error
+                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let msg = (obj["message"] as? String) ?? (obj["error"] as? String) {
+                    throw NetworkError.networkError(msg)
+                }
+                throw NetworkError.badRequest
+            case 401:
+                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let msg = (obj["message"] as? String) ?? (obj["error"] as? String) {
+                    // still unauthorized, but include message in description path
+                    throw NetworkError.networkError(msg)
+                }
+                throw NetworkError.unauthorized
+            case 403:
+                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let msg = (obj["message"] as? String) ?? (obj["error"] as? String) {
+                    throw NetworkError.networkError(msg)
+                }
+                throw NetworkError.forbidden
+            case 404:
+                // KEY: Always map to .notFound so app logic can react
+                throw NetworkError.notFound
+            case 500...599:
+                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let msg = (obj["message"] as? String) ?? (obj["error"] as? String) {
+                    throw NetworkError.networkError(msg)
+                }
+                throw NetworkError.serverError
+            default:
+                throw NetworkError.unknownError(httpResponse.statusCode)
             }
             
-            let decoded = try JSONDecoder().decode(T.self, from: data)
-            print("✅ Successfully decoded response")
-            return decoded
-            
-        } catch {
-            print("❌ Network request failed: \(error)")
+        } catch let error as URLError {
+            switch error.code {
+            case .notConnectedToInternet:
+                throw NetworkError.noConnection
+            case .timedOut:
+                throw NetworkError.timeout
+            default:
+                throw NetworkError.networkError(error.localizedDescription)
+            }
+        } catch let error as NetworkError {
             throw error
+        } catch {
+            throw NetworkError.unknownError(0)
         }
-    }
-    
-    // MARK: - Additional Methods for WebRTC
-    
-    private func performRequest(endpoint: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Any {
-        let url = URL(string: "\(self.baseURL)\(endpoint)")!
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        if let token = UserDefaults.standard.string(forKey: "auth_token") {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        if let body = body {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        }
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try JSONSerialization.jsonObject(with: data)
-    }
-    
-    func checkUserOnlineStatus(_ userId: String) async throws -> Bool {
-        let response = try await performRequest(
-            endpoint: "/api/users/\(userId)/online",
-            method: "GET"
-        )
-        
-        guard let result = response as? [String: Any],
-              let isOnline = result["isOnline"] as? Bool else {
-            return false
-        }
-        
-        return isOnline
-    }
-    
-    func notifyMediaAvailable(chatId: String, mediaId: String, type: String) async throws {
-        let body: [String: Any] = [
-            "chatId": chatId,
-            "mediaId": mediaId,
-            "type": type
-        ]
-        
-        _ = try await performRequest(
-            endpoint: "/api/messaging/media-available",
-            method: "POST",
-            body: body
-        )
-    }
-    
-    func exchangeWebRTCSignaling(with peerId: String, signaling: [String: Any]) async throws -> [String: Any] {
-        let body: [String: Any] = [
-            "peerId": peerId,
-            "signaling": signaling
-        ]
-        
-        let response = try await performRequest(
-            endpoint: "/api/webrtc/signaling",
-            method: "POST",
-            body: body
-        )
-        
-        guard let result = response as? [String: Any] else {
-            throw NetworkError.invalidResponse
-        }
-        
-        return result
-    }
-    
-    func request(url: URL, method: String = "GET", headers: [String: String] = [:], body: Data? = nil) async throws -> (Data, URLResponse) {
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        
-        for (key, value) in headers {
-            request.setValue(value, forHTTPHeaderField: key)
-        }
-        
-        if let body = body {
-            request.httpBody = body
-        }
-        
-        return try await URLSession.shared.data(for: request)
     }
 }
 
-// MARK: - Network-specific Models
+// MARK: - Zero-Knowledge Lookup (Placeholder APIs)
 
-// Using DiscoveredUser from ZeroKnowledgeLookup.swift
+extension NetworkService {
+    // These APIs provide compile-time integration for ZeroKnowledgeLookup.
+    // They return safe defaults until server endpoints are finalized.
+
+    func queryHashedUsers(cyphrIdHashes: [String]) async throws -> [DiscoveredUser] {
+        print("🧪 queryHashedUsers placeholder: returning 0 users for \(cyphrIdHashes.count) hashes")
+        return []
+    }
+
+    func searchUsername(_ username: String) async throws -> [DiscoveredUser] {
+        print("🧪 searchUsername placeholder for @\(username)")
+        return []
+    }
+
+    func updateDiscoverability(allowCyphrId: Bool, allowPublicKey: Bool) async throws -> Bool {
+        print("🧪 updateDiscoverability placeholder: cyphrId=\(allowCyphrId), publicKey=\(allowPublicKey)")
+        return true
+    }
+
+    func checkUserExists(cyphrIdHash: String) async throws -> Bool {
+        print("🧪 checkUserExists placeholder for hash: \(cyphrIdHash.prefix(8))…")
+        return false
+    }
+
+    func discoverGroups(query: String) async throws -> [GroupInfo] {
+        print("🧪 discoverGroups placeholder for query: \(query)")
+        return []
+    }
+
+    func joinGroup(inviteLink: String) async throws -> Bool {
+        print("🧪 joinGroup placeholder for invite: \(inviteLink)")
+        return false
+    }
+
+    // MARK: - WebRTC / Presence / Media (placeholders)
+
+    func checkUserOnlineStatus(_ cyphrId: String) async throws -> Bool {
+        print("🧪 checkUserOnlineStatus placeholder for @\(cyphrId)")
+        return false
+    }
+
+    func notifyMediaAvailable(chatId: String, mediaId: String, type: String) async throws {
+        print("🧪 notifyMediaAvailable placeholder: chatId=\(chatId), mediaId=\(mediaId), type=\(type)")
+    }
+
+    func exchangeWebRTCSignaling(with peerId: String, signaling: [String: Any]) async throws -> [String: Any] {
+        print("🧪 exchangeWebRTCSignaling placeholder with peerId=\(peerId)")
+        // Return an empty answer by default; server integration will replace this
+        return ["answer": ""]
+    }
+}
+
+// MARK: - Wallet APIs (placeholders)
+
+extension NetworkService {
+    struct WalletBalance: Codable {
+        let xlm: String
+        let usdc: String
+    }
+
+    func getWalletBalance(cyphrId: String) async throws -> WalletBalance {
+        print("🧪 getWalletBalance placeholder for @\(cyphrId)")
+        return WalletBalance(xlm: "0", usdc: "0")
+    }
+
+    func deleteCyphrIdentity(cyphrId: String) async throws -> Bool {
+        // Best-effort server request; falls back gracefully if endpoint is absent
+        print("🗑️ Requesting server-side delete for @\(cyphrId)")
+        let payload: [String: Any] = [
+            // Send both keys for compatibility with legacy handlers
+            "cyphrId": cyphrId,
+            "cyphr_id": cyphrId
+        ]
+
+        // Try a modern endpoint first, then legacy fallback
+        do {
+            _ = try await makeRequest(endpoint: "/api/cyphr-id/delete-account", method: "POST", body: payload, includeAuth: true)
+            print("✅ Server delete-account succeeded for @\(cyphrId)")
+            return true
+        } catch NetworkError.notFound {
+            // Try legacy route if new not present
+            do {
+                _ = try await makeRequest(endpoint: "/api/cyphr-id/delete", method: "POST", body: payload, includeAuth: true)
+                print("✅ Legacy delete succeeded for @\(cyphrId)")
+                return true
+            } catch {
+                print("⚠️ Server delete failed on legacy route: \(error)")
+                return false
+            }
+        } catch {
+            print("⚠️ Server delete failed: \(error)")
+            return false
+        }
+    }
+}
+
+// MARK: - Response Models
 
 struct CyphrIdCheckResponse: Codable {
     let available: Bool
     let suggestions: [String]?
 }
 
-struct UserStatus: Codable {
-    let hasPin: Bool
-    let hasBiometry: Bool
-    let userInfo: User?
+struct ChallengeResponse: Decodable {
+    let success: Bool
+    let challengeId: String
+    let challenge: String
+    let ttl: Int // seconds
 }
 
-struct UserSearchResult: Codable {
+struct RecoveryInitResponse: Decodable {
+    let success: Bool
+    let challengeId: String?
+    let recoveryChallenge: String?
+    let ttl: Int?
+    let message: String?
+}
+
+struct UserLookupResponse: Codable {
+    let exists: Bool
+    let cyphrId: String
+    let userId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case exists
+        case cyphrId
+        case userId
+        case userIdentifier = "user_id"
+    }
+
+    init(exists: Bool, cyphrId: String, userId: String? = nil) {
+        self.exists = exists
+        self.cyphrId = cyphrId
+        self.userId = userId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        exists = try container.decode(Bool.self, forKey: .exists)
+        cyphrId = try container.decode(String.self, forKey: .cyphrId)
+        userId = try container.decodeIfPresent(String.self, forKey: .userId)
+            ?? container.decodeIfPresent(String.self, forKey: .userIdentifier)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(exists, forKey: .exists)
+        try container.encode(cyphrId, forKey: .cyphrId)
+        if let userId {
+            try container.encode(userId, forKey: .userId)
+        }
+    }
+}
+
+struct PublicKeyResponse: Codable {
     let cyphrId: String
     let publicKey: String
-    let fullName: String?
+    let kyberPublicKey: String?
 }
 
-// MARK: - Messaging Response Models
-
-struct MessagingKeysResponse: Codable {
-    let success: Bool
-    let publicKey: String
-    let keyId: String
-    let algorithm: String
-    let keySize: Int
-    let message: String
+struct ChatHistoryResponse: Codable {
+    let messages: [NetworkEncryptedMessage]
+    let chatId: String
 }
 
-struct SendMessageResponse: Codable {
-    let success: Bool
-    let messageId: String
-    let encrypted: Bool
-    let algorithm: String
-    let message: String
-}
-
-struct DecryptedMessageResponse: Codable {
-    let success: Bool
-    let content: String
+struct NetworkEncryptedMessage: Codable {
+    let id: String
     let senderId: String
-    let algorithm: String
+    let encryptedPayload: HybridEncryptedPayload
+    let timestamp: String
+    let messageType: String?
 }
 
 struct MessagesResponse: Codable {
@@ -618,30 +582,18 @@ struct MessagesResponse: Codable {
     let algorithm: String
 }
 
-struct EncryptedMessageData: Codable {
-    let id: String
+struct DecryptedMessageResponse: Codable {
+    let success: Bool
+    let content: String
     let senderId: String
-    let encryptedContent: String?
-    let kyberCiphertext: String?
-    let nonce: String?
-    let authTag: String?
-    let encrypted: Bool
-    let createdAt: String
-    let senderCyphrId: String?
-    let senderName: String?
-    
-    enum CodingKeys: String, CodingKey {
-        case id
-        case senderId = "sender_id"
-        case encryptedContent = "encrypted_content"
-        case kyberCiphertext = "kyber_ciphertext"
-        case nonce
-        case authTag = "auth_tag"
-        case encrypted
-        case createdAt = "created_at"
-        case senderCyphrId = "sender_cyphr_id"
-        case senderName = "sender_name"
-    }
+    let algorithm: String
+}
+
+struct SendMessageResponse: Codable {
+    let success: Bool
+    let messageId: String
+    let algorithm: String
+    let message: String?
 }
 
 struct CreateChatResponse: Codable {
@@ -652,89 +604,84 @@ struct CreateChatResponse: Codable {
     let message: String
 }
 
-// MARK: - Wallet Models
-
-struct WalletBalance: Codable {
-    let xlm: String
-    let usdc: String
-    let assets: [String: String]
-}
-
-struct Transaction: Codable {
-    let from: String
-    let to: String
-    let amount: String
-    let asset: String
-    let memo: String?
-}
-
-struct TransactionResult: Codable {
+struct MessagingKeysResponse: Codable {
     let success: Bool
-    let transactionId: String
-    let hash: String
+    let publicKey: String
+    let keyId: String
+    let algorithm: String
+    let keySize: Int
+    let message: String
 }
 
-struct IceServersResponse: Codable {
-    let iceServers: [IceServer]
+// MARK: - Zero-Knowledge Lookup (Support Types)
+
+struct GroupInfo: Codable {
+    let id: String
+    let name: String
+    let description: String?
+    let memberCount: Int
+    let isPublic: Bool
 }
 
-struct IceServer: Codable {
-    let urls: [String]
-    let username: String?
-    let credential: String?
+// Helper to decode either numeric or string IDs
+struct StringOrInt: Decodable {
+    let stringValue: String
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let intValue = try? container.decode(Int.self) {
+            self.stringValue = String(intValue)
+        } else if let str = try? container.decode(String.self) {
+            self.stringValue = str
+        } else {
+            throw DecodingError.typeMismatch(String.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Expected String or Int"))
+        }
+    }
 }
 
-struct DeviceInfo {
-    let deviceId: String
-    let deviceModel: String
-    let osVersion: String
-    let appVersion: String
-    
-    // Static singleton for current device
-    static let current: DeviceInfo = {
-        #if os(iOS)
-        let device = UIDevice.current
-        let deviceId = device.identifierForVendor?.uuidString ?? UUID().uuidString
-        let deviceModel = device.model
-        let osVersion = "\(device.systemName) \(device.systemVersion)"
-        #else
-        let deviceId = UUID().uuidString
-        let deviceModel = "iOS Simulator"
-        let osVersion = "iOS 17.0"
-        #endif
-        
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        
-        return DeviceInfo(
-            deviceId: deviceId,
-            deviceModel: deviceModel,
-            osVersion: osVersion,
-            appVersion: appVersion
-        )
-    }()
-}
 
-// MARK: - Errors
+// MARK: - Error Types
 
 enum NetworkError: LocalizedError {
     case invalidURL
+    case invalidRequest
     case invalidResponse
-    case httpError(Int)
-    case decodingError
+    case noConnection
+    case timeout
+    case badRequest
     case unauthorized
+    case forbidden
+    case notFound
+    case serverError
+    case networkError(String)
+    case unknownError(Int)
     
     var errorDescription: String? {
         switch self {
         case .invalidURL:
             return "Invalid URL"
+        case .invalidRequest:
+            return "Invalid request"
         case .invalidResponse:
-            return "Invalid server response"
-        case .httpError(let code):
-            return "HTTP error: \(code)"
-        case .decodingError:
-            return "Failed to decode response"
+            return "Invalid response"
+        case .noConnection:
+            return "No internet connection"
+        case .timeout:
+            return "Request timed out"
+        case .badRequest:
+            return "Bad request"
         case .unauthorized:
-            return "Unauthorized"
+            return "Unauthorized access"
+        case .forbidden:
+            return "Access forbidden"
+        case .notFound:
+            return "Resource not found"
+        case .serverError:
+            return "Server error"
+        case .networkError(let message):
+            return message
+        case .unknownError(let code):
+            return "Unknown error (code: \(code))"
         }
     }
 }

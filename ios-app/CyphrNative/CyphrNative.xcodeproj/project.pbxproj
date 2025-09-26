@@ -27,11 +27,10 @@
 		B11B99CED89A154D1156D2B9 /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_737EF6EE-F657-417A-9A32-0BD5E11A574F" /* NetworkService.swift */; };
 		BBBBCCCD2E78EEEE00782366 /* EnterpriseKeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBBBCCCC2E78EEEE00782366 /* EnterpriseKeychainService.swift */; };
 		BDD74F283334ED3630EC5D88 /* WebRTCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_8CAEB3FF-0996-4965-BCEA-C1764CA23712" /* WebRTCService.swift */; };
-		BF224EF62E78BE3C00D3829E /* Filename.swift” (как требует ваш процесс), чтобы вы могли сразу заменить. in Resources */ = {isa = PBXBuildFile; fileRef = BF224EF52E78BE3C00D3829E /* Filename.swift” (как требует ваш процесс), чтобы вы могли сразу заменить. */; };
+		BF0717EE2E7CEF3E001474C5 /* ANALYSIS_AND_FIXES.md in Resources */ = {isa = PBXBuildFile; fileRef = BF0717ED2E7CEF3E001474C5 /* ANALYSIS_AND_FIXES.md */; };
 		BF224EF82E78C66800D3829E /* CYPHR_IMPLEMENTATION_MASTERPLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = BF224EF72E78C66800D3829E /* CYPHR_IMPLEMENTATION_MASTERPLAN.md */; };
 		BF224EFA2E78C74D00D3829E /* EXECUTION_LOG.md in Resources */ = {isa = PBXBuildFile; fileRef = BF224EF92E78C74D00D3829E /* EXECUTION_LOG.md */; };
-		BF224EFC2E78C9E500D3829E /* EXECUTION_LOG 2.md in Resources */ = {isa = PBXBuildFile; fileRef = BF224EFB2E78C9E500D3829E /* EXECUTION_LOG 2.md */; };
-		BF224EFE2E78CBFD00D3829E /* EXECUTION_LOG 3.md in Resources */ = {isa = PBXBuildFile; fileRef = BF224EFD2E78CBFD00D3829E /* EXECUTION_LOG 3.md */; };
+		BF4DF8FF2E8208AB00777CD7 /* SecureEnclaveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4DF8FE2E8208AB00777CD7 /* SecureEnclaveService.swift */; };
 		BF9368182E78D92800782366 /* BIP39WordList.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9368172E78D92800782366 /* BIP39WordList.swift */; };
 		BF93681A2E78DA4700782366 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = BF9368192E78DA4700782366 /* CHANGELOG.md */; };
 		BF93681C2E78DA4B00782366 /* DECISIONS.md in Resources */ = {isa = PBXBuildFile; fileRef = BF93681B2E78DA4B00782366 /* DECISIONS.md */; };
@@ -39,7 +38,12 @@
 		BF9368202E78DA5000782366 /* RISK_LOG.md in Resources */ = {isa = PBXBuildFile; fileRef = BF93681F2E78DA5000782366 /* RISK_LOG.md */; };
 		BF9368222E78DA5300782366 /* BiometricAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9368212E78DA5300782366 /* BiometricAuthService.swift */; };
 		BF9368242E78DA5A00782366 /* View+OnChangeCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9368232E78DA5A00782366 /* View+OnChangeCompat.swift */; };
+		BF9368262E78DA6000782366 /* AudioRecorderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9368252E78DA6000782366 /* AudioRecorderService.swift */; };
+		BF9368272E78DA6600782366 /* CallOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9368282E78DA6600782366 /* CallOverlayView.swift */; };
+		BFBANNERF2E78DAAA00782366 /* NetworkBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_9F2E5C65-5B3E-4C0A-9C1A-7B73D6E6A8A1" /* NetworkBannerView.swift */; };
 		BFF5C3442E7399EA00F50464 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = BFF5C3432E7399EA00F50464 /* WebRTC */; };
+		/* removed BFKEYCB12E7CFB01001474C5 KeychainService.swift in Sources */
+		BFPINVIEWF2E78DAAA00782366 /* PinUnlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_9F2E5C65-5B3E-4C0A-9C1A-7B73D6E6A8B2" /* PinUnlockView.swift */; };
 		C21F726B8BF571EF9A2334C2 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_04B1AC53-701A-4D84-8FD2-B808AE3621A9" /* Models.swift */; };
 		C48BB7424923C45FCD1EE468 /* CyphrIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_5898C7B6-0796-49EE-B520-7B2C58C0B826" /* CyphrIdentity.swift */; };
 		C8448A39A28E219818FC8DB9 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_E0FD95CF-7DEA-4F7B-A2EA-9AE578AB6416" /* WelcomeView.swift */; };
@@ -48,6 +52,8 @@
 		DEA5C2A49653A538140B7C89 /* SecuritySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_3E834A92-B84E-43A7-9427-802D8DB94987" /* SecuritySetupView.swift */; };
 		DF5C4F378C155B7CDB231995 /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_6BC9E048-1EA0-424B-95D9-E4191656777A" /* LoadingOverlay.swift */; };
 		E8E2FD64AF7827784B3DBE91 /* SwiftKyber in Frameworks */ = {isa = PBXBuildFile; productRef = D215B3B6F3B676FD80B6F7AE /* SwiftKyber */; };
+		F0D8C6F02A1B4C5D00ABCDEF /* CyphrNativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8C6F12A1B4C5D00ABCDEF /* CyphrNativeTests.swift */; };
+		F0D8C7012A1B4C5D00ABCDEF /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D8C7022A1B4C5D00ABCDEF /* AuthTokenStore.swift */; };
 		F63AB722BE73B4CF8E7A0B15 /* WalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_BD504761-7033-4F8F-B96C-AA0B0F924EFD" /* WalletView.swift */; };
 		F93C4832325FAD84EE2FD7D3 /* ChatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_CC74FB5E-8408-4BB6-A20A-A933CB2D4E32" /* ChatsView.swift */; };
 		F9C04CA37C6F7A6519F4A9E0 /* CyphrIdSignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_29544201-DB5A-4C1F-8E83-FB1F9C52A7B7" /* CyphrIdSignUpView.swift */; };
@@ -55,17 +61,26 @@
 		FE3F48E2F5B2D9D175A2EDF6 /* ZeroKnowledgeLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = "TEMP_0D4237C8-972C-4B07-A4F1-4A103FEFA765" /* ZeroKnowledgeLookup.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		F0D8C6FB2A1B4C5D00ABCDEF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 89034586915F036BB505E583 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20AD531C4D6087490C779856;
+			remoteInfo = CyphrNative;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		06210A339F131F1B5213CD55 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		5B18DBFDD4BBA6DDF48032CD /* Cyphr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cyphr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		77D1D564D4075C714754C559 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AAAABBBB2E78DDDD00782366 /* Resources/bip39-english.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Resources/bip39-english.txt"; sourceTree = "<group>"; };
 		BBBBCCCC2E78EEEE00782366 /* EnterpriseKeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnterpriseKeychainService.swift; sourceTree = "<group>"; };
-		BF224EF52E78BE3C00D3829E /* Filename.swift” (как требует ваш процесс), чтобы вы могли сразу заменить. */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Filename.swift” (как требует ваш процесс), чтобы вы могли сразу заменить."; sourceTree = "<group>"; };
+		BF0717ED2E7CEF3E001474C5 /* ANALYSIS_AND_FIXES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ANALYSIS_AND_FIXES.md; sourceTree = "<group>"; };
 		BF224EF72E78C66800D3829E /* CYPHR_IMPLEMENTATION_MASTERPLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CYPHR_IMPLEMENTATION_MASTERPLAN.md; sourceTree = "<group>"; };
 		BF224EF92E78C74D00D3829E /* EXECUTION_LOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = EXECUTION_LOG.md; sourceTree = "<group>"; };
-		BF224EFB2E78C9E500D3829E /* EXECUTION_LOG 2.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "EXECUTION_LOG 2.md"; sourceTree = "<group>"; };
-		BF224EFD2E78CBFD00D3829E /* EXECUTION_LOG 3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "EXECUTION_LOG 3.md"; sourceTree = "<group>"; };
+		BF4DF8FE2E8208AB00777CD7 /* SecureEnclaveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureEnclaveService.swift; sourceTree = "<group>"; };
 		BF9368172E78D92800782366 /* BIP39WordList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BIP39WordList.swift; sourceTree = "<group>"; };
 		BF9368192E78DA4700782366 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		BF93681B2E78DA4B00782366 /* DECISIONS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DECISIONS.md; sourceTree = "<group>"; };
@@ -73,6 +88,13 @@
 		BF93681F2E78DA5000782366 /* RISK_LOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = RISK_LOG.md; sourceTree = "<group>"; };
 		BF9368212E78DA5300782366 /* BiometricAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricAuthService.swift; sourceTree = "<group>"; };
 		BF9368232E78DA5A00782366 /* View+OnChangeCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+OnChangeCompat.swift"; sourceTree = "<group>"; };
+		BF9368252E78DA6000782366 /* AudioRecorderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorderService.swift; sourceTree = "<group>"; };
+		BF9368282E78DA6600782366 /* CallOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallOverlayView.swift; sourceTree = "<group>"; };
+		/* removed BFKEYCB02E7CFB01001474C5 KeychainService.swift file ref */
+		F0D8C6F12A1B4C5D00ABCDEF /* CyphrNativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrNativeTests.swift; sourceTree = "<group>"; };
+		F0D8C6F62A1B4C5D00ABCDEF /* CyphrNativeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CyphrNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0D8C6FF2A1B4C5D00ABCDEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F0D8C7022A1B4C5D00ABCDEF /* AuthTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTokenStore.swift; sourceTree = "<group>"; };
 		"TEMP_04B1AC53-701A-4D84-8FD2-B808AE3621A9" /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		"TEMP_0D4237C8-972C-4B07-A4F1-4A103FEFA765" /* ZeroKnowledgeLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZeroKnowledgeLookup.swift; sourceTree = "<group>"; };
 		"TEMP_13BCEE1E-818A-4C90-9A04-876DD24E2BC0" /* CyphrApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyphrApp.swift; sourceTree = "<group>"; };
@@ -90,6 +112,8 @@
 		"TEMP_8227256F-AB5A-4C4C-8501-014B2F690AC2" /* MessagingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagingService.swift; sourceTree = "<group>"; };
 		"TEMP_863302E3-E9F7-41BB-BB28-64EDF72C702C" /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		"TEMP_8CAEB3FF-0996-4965-BCEA-C1764CA23712" /* WebRTCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCService.swift; sourceTree = "<group>"; };
+		"TEMP_9F2E5C65-5B3E-4C0A-9C1A-7B73D6E6A8A1" /* NetworkBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBannerView.swift; sourceTree = "<group>"; };
+		"TEMP_9F2E5C65-5B3E-4C0A-9C1A-7B73D6E6A8B2" /* PinUnlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinUnlockView.swift; sourceTree = "<group>"; };
 		"TEMP_A843B5DA-CBA5-4190-AD89-1C01D8C930CA" /* ChatDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDetailView.swift; sourceTree = "<group>"; };
 		"TEMP_BC253BAC-9428-4835-8728-10C62E2862C1" /* NewChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewChatView.swift; sourceTree = "<group>"; };
 		"TEMP_BD504761-7033-4F8F-B96C-AA0B0F924EFD" /* WalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletView.swift; sourceTree = "<group>"; };
@@ -113,6 +137,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F0D8C6F42A1B4C5D00ABCDEF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -120,6 +151,7 @@
 			isa = PBXGroup;
 			children = (
 				5B18DBFDD4BBA6DDF48032CD /* Cyphr.app */,
+				F0D8C6F62A1B4C5D00ABCDEF /* CyphrNativeTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -134,9 +166,14 @@
 		EEC238E22F51F8E124B09829 = {
 			isa = PBXGroup;
 			children = (
+				BF4DF8FE2E8208AB00777CD7 /* SecureEnclaveService.swift */,
+				"TEMP_9F2E5C65-5B3E-4C0A-9C1A-7B73D6E6A8A1" /* NetworkBannerView.swift */,
+				"TEMP_9F2E5C65-5B3E-4C0A-9C1A-7B73D6E6A8B2" /* PinUnlockView.swift */,
 				"TEMP_C9354CE0-5EEC-40AE-81F1-8EB1FE5E7A66" /* AuthMethodSelectionView.swift */,
 				"TEMP_2A7A63C1-5A0C-42B2-9F43-246046491C37" /* AuthenticationService.swift */,
+				F0D8C7022A1B4C5D00ABCDEF /* AuthTokenStore.swift */,
 				"TEMP_EDEB80D3-DEC9-4C39-9FAF-B6DFDF524B16" /* CallView.swift */,
+				BF9368282E78DA6600782366 /* CallOverlayView.swift */,
 				"TEMP_A843B5DA-CBA5-4190-AD89-1C01D8C930CA" /* ChatDetailView.swift */,
 				"TEMP_CC74FB5E-8408-4BB6-A20A-A933CB2D4E32" /* ChatsView.swift */,
 				"TEMP_13BCEE1E-818A-4C90-9A04-876DD24E2BC0" /* CyphrApp.swift */,
@@ -154,6 +191,7 @@
 				"TEMP_863302E3-E9F7-41BB-BB28-64EDF72C702C" /* ProfileView.swift */,
 				"TEMP_43989C9B-A839-481B-B4FC-893D85AACCE5" /* RecoveryPhraseView.swift */,
 				"TEMP_FE73E6BF-C6E2-4626-B0FF-F6857CE43F0C" /* S3Service.swift */,
+				BF9368252E78DA6000782366 /* AudioRecorderService.swift */,
 				"TEMP_3E834A92-B84E-43A7-9427-802D8DB94987" /* SecuritySetupView.swift */,
 				"TEMP_45291A65-666F-45AB-BCCC-38CF617B3D9C" /* SettingsView.swift */,
 				"TEMP_3B8551C8-EE54-4AE6-8404-EEE1BBD67BA4" /* UsernameValidator.swift */,
@@ -166,20 +204,28 @@
 				AAAABBBB2E78DDDD00782366 /* Resources/bip39-english.txt */,
 				BF9368212E78DA5300782366 /* BiometricAuthService.swift */,
 				BBBBCCCC2E78EEEE00782366 /* EnterpriseKeychainService.swift */,
+				F0D8C6F22A1B4C5D00ABCDEF /* CyphrNativeTests */,
 				761A1CF60431860384DB97BA /* Products */,
 				BFF5C3412E73998200F50464 /* Recovered References */,
-				BF224EF52E78BE3C00D3829E /* Filename.swift” (как требует ваш процесс), чтобы вы могли сразу заменить. */,
 				BF224EF72E78C66800D3829E /* CYPHR_IMPLEMENTATION_MASTERPLAN.md */,
 				BF224EF92E78C74D00D3829E /* EXECUTION_LOG.md */,
-				BF224EFB2E78C9E500D3829E /* EXECUTION_LOG 2.md */,
-				BF224EFD2E78CBFD00D3829E /* EXECUTION_LOG 3.md */,
 				BF9368172E78D92800782366 /* BIP39WordList.swift */,
 				BF9368192E78DA4700782366 /* CHANGELOG.md */,
 				BF93681B2E78DA4B00782366 /* DECISIONS.md */,
 				BF93681D2E78DA4E00782366 /* TEST_STATUS.md */,
 				BF93681F2E78DA5000782366 /* RISK_LOG.md */,
 				BF9368232E78DA5A00782366 /* View+OnChangeCompat.swift */,
+				BF0717ED2E7CEF3E001474C5 /* ANALYSIS_AND_FIXES.md */,
 			);
+			sourceTree = "<group>";
+		};
+		F0D8C6F22A1B4C5D00ABCDEF /* CyphrNativeTests */ = {
+			isa = PBXGroup;
+			children = (
+				F0D8C6F12A1B4C5D00ABCDEF /* CyphrNativeTests.swift */,
+				F0D8C6FF2A1B4C5D00ABCDEF /* Info.plist */,
+			);
+			path = CyphrNativeTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -207,6 +253,24 @@
 			productReference = 5B18DBFDD4BBA6DDF48032CD /* Cyphr.app */;
 			productType = "com.apple.product-type.application";
 		};
+		F0D8C6F72A1B4C5D00ABCDEF /* CyphrNativeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F0D8C6FA2A1B4C5D00ABCDEF /* Build configuration list for PBXNativeTarget "CyphrNativeTests" */;
+			buildPhases = (
+				F0D8C6F32A1B4C5D00ABCDEF /* Sources */,
+				F0D8C6F42A1B4C5D00ABCDEF /* Frameworks */,
+				F0D8C6FD2A1B4C5D00ABCDEF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F0D8C6FC2A1B4C5D00ABCDEF /* PBXTargetDependency */,
+			);
+			name = CyphrNativeTests;
+			productName = CyphrNativeTests;
+			productReference = F0D8C6F62A1B4C5D00ABCDEF /* CyphrNativeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -217,6 +281,9 @@
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					20AD531C4D6087490C779856 = {
+						ProvisioningStyle = Automatic;
+					};
+					F0D8C6F72A1B4C5D00ABCDEF = {
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -240,6 +307,7 @@
 			projectRoot = "";
 			targets = (
 				20AD531C4D6087490C779856 /* CyphrNative */,
+				F0D8C6F72A1B4C5D00ABCDEF /* CyphrNativeTests */,
 			);
 		};
 /* End PBXProject section */
@@ -249,11 +317,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BF224EFC2E78C9E500D3829E /* EXECUTION_LOG 2.md in Resources */,
-				BF224EFE2E78CBFD00D3829E /* EXECUTION_LOG 3.md in Resources */,
+				BF0717EE2E7CEF3E001474C5 /* ANALYSIS_AND_FIXES.md in Resources */,
 				BF9368202E78DA5000782366 /* RISK_LOG.md in Resources */,
 				BF93681E2E78DA4E00782366 /* TEST_STATUS.md in Resources */,
-				BF224EF62E78BE3C00D3829E /* Filename.swift” (как требует ваш процесс), чтобы вы могли сразу заменить. in Resources */,
 				BF93681C2E78DA4B00782366 /* DECISIONS.md in Resources */,
 				BF93681A2E78DA4700782366 /* CHANGELOG.md in Resources */,
 				4FA278CE02D7313B35716996 /* Assets.xcassets in Resources */,
@@ -261,6 +327,13 @@
 				D6E23F137A7FFF5324340DCB /* LaunchScreen.storyboard in Resources */,
 				BF224EFA2E78C74D00D3829E /* EXECUTION_LOG.md in Resources */,
 				AAAABBBF2E78DDDD00782366 /* Resources/bip39-english.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F0D8C6FD2A1B4C5D00ABCDEF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -273,14 +346,17 @@
 			files = (
 				AD70F881F178B2A32EDB038F /* AuthMethodSelectionView.swift in Sources */,
 				7CB23CEFB5504940EFFA969A /* AuthenticationService.swift in Sources */,
+				F0D8C7012A1B4C5D00ABCDEF /* AuthTokenStore.swift in Sources */,
 				171F2E4A56BF734C730E1524 /* CallView.swift in Sources */,
 				4B16128E9EAD99A70A5B817F /* ChatDetailView.swift in Sources */,
+				BF9368272E78DA6600782366 /* CallOverlayView.swift in Sources */,
 				F93C4832325FAD84EE2FD7D3 /* ChatsView.swift in Sources */,
 				9D5E9CF32BFDB63FE4D3A953 /* CyphrApp.swift in Sources */,
 				ADC37FFE84E64A045EFA77DC /* CyphrIdLoginView.swift in Sources */,
 				F9C04CA37C6F7A6519F4A9E0 /* CyphrIdSignUpView.swift in Sources */,
 				C48BB7424923C45FCD1EE468 /* CyphrIdentity.swift in Sources */,
 				BBBBCCCD2E78EEEE00782366 /* EnterpriseKeychainService.swift in Sources */,
+				BF4DF8FF2E8208AB00777CD7 /* SecureEnclaveService.swift in Sources */,
 				581A3C732D295D9E81A016BC /* HDWalletService.swift in Sources */,
 				8EEED95517DB7E289055309C /* ImagePicker.swift in Sources */,
 				DF5C4F378C155B7CDB231995 /* LoadingOverlay.swift in Sources */,
@@ -295,6 +371,7 @@
 				A38D45236F7A7707F7D5F2B5 /* ProfileView.swift in Sources */,
 				A043039B5781CC1D29750DDE /* RecoveryPhraseView.swift in Sources */,
 				8C930DA82D43332529E6734B /* S3Service.swift in Sources */,
+				BF9368262E78DA6000782366 /* AudioRecorderService.swift in Sources */,
 				DEA5C2A49653A538140B7C89 /* SecuritySetupView.swift in Sources */,
 				4B931C9B2194C740A1F0220C /* SettingsView.swift in Sources */,
 				1C2702C680526BA3956AD78A /* UsernameValidator.swift in Sources */,
@@ -302,10 +379,28 @@
 				BDD74F283334ED3630EC5D88 /* WebRTCService.swift in Sources */,
 				C8448A39A28E219818FC8DB9 /* WelcomeView.swift in Sources */,
 				FE3F48E2F5B2D9D175A2EDF6 /* ZeroKnowledgeLookup.swift in Sources */,
+				BFBANNERF2E78DAAA00782366 /* NetworkBannerView.swift in Sources */,
+				BFPINVIEWF2E78DAAA00782366 /* PinUnlockView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F0D8C6F32A1B4C5D00ABCDEF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0D8C6F02A1B4C5D00ABCDEF /* CyphrNativeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F0D8C6FC2A1B4C5D00ABCDEF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20AD531C4D6087490C779856 /* CyphrNative */;
+			targetProxy = F0D8C6FB2A1B4C5D00ABCDEF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		26813B3275168D845806973A /* Debug */ = {
@@ -495,6 +590,48 @@
 			};
 			name = Debug;
 		};
+		F0D8C6F82A1B4C5D00ABCDEF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = B5A99MMWH6;
+				INFOPLIST_FILE = CyphrNativeTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cyphrmessenger.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Cyphr.app/Cyphr";
+			};
+			name = Debug;
+		};
+		F0D8C6F92A1B4C5D00ABCDEF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = B5A99MMWH6;
+				INFOPLIST_FILE = CyphrNativeTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cyphrmessenger.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Cyphr.app/Cyphr";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -512,6 +649,15 @@
 			buildConfigurations = (
 				D88B15563541D10AB03D86F0 /* Debug */,
 				B9C39EEF744B090558C46A90 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F0D8C6FA2A1B4C5D00ABCDEF /* Build configuration list for PBXNativeTarget "CyphrNativeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F0D8C6F82A1B4C5D00ABCDEF /* Debug */,
+				F0D8C6F92A1B4C5D00ABCDEF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

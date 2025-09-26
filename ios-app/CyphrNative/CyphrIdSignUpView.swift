@@ -1,18 +1,13 @@
 import SwiftUI
 import Combine
-#if os(iOS)
-import UIKit
-#endif
 
-/// Pure Cyphr ID Sign Up - ZERO KNOWLEDGE, ZERO STORAGE
-/// No email, no phone, no passwords - only cryptographic identity
+/// Sign Up View - Enforces "One Device = One Cyphr ID" principle
 struct CyphrIdSignUpView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel = CyphrIdSignUpViewModel()
-    @State private var selectedCyphrId = ""
-    @State private var showingRecoveryPhrase = false
-    @State private var hasBackedUpPhrase = false
-    @State private var textFieldInput = ""
+    @EnvironmentObject var authManager: AuthenticationManager
+    @StateObject private var viewModel = SignUpViewModel()
+    @State private var cyphrIdInput = ""
+    @State private var currentStep: SignUpStep = .chooseCyphrId
     @State private var isLoading = false
     @State private var loadingMessage = ""
     @FocusState private var isCyphrIdFocused: Bool
@@ -32,29 +27,36 @@ struct CyphrIdSignUpView: View {
             
             ScrollView {
                 VStack(spacing: 30) {
-                    // Header
+                    // Network banner
+                    NetworkBannerView()
+
+                    // Header with device binding warning
                     header
+                    
+                    // Device check section
+                    deviceCheckSection
                     
                     // Step indicator
                     stepIndicator
                     
                     // Main content
                     Group {
-                        if viewModel.currentStep == .chooseCyphrId {
+                        switch currentStep {
+                        case .chooseCyphrId:
                             cyphrIdSelectionView
-                        } else if viewModel.currentStep == .securitySetup {
+                        case .securitySetup:
                             SecuritySetupView(
                                 currentStep: 2,
                                 totalSteps: 4,
                                 onCompletion: {
                                     withAnimation {
-                                        viewModel.currentStep = .backupPhrase
+                                        currentStep = .backupPhrase
                                     }
                                 }
                             )
-                        } else if viewModel.currentStep == .backupPhrase {
+                        case .backupPhrase:
                             recoveryPhraseView
-                        } else if viewModel.currentStep == .complete {
+                        case .complete:
                             completionView
                         }
                     }
@@ -75,23 +77,9 @@ struct CyphrIdSignUpView: View {
         } message: {
             Text(viewModel.errorMessage)
         }
-        .onAppear {
-            // Test backend connectivity explicitly
-            Task {
-                print("🔍 Testing backend connectivity on view appear...")
-                let isConnected = await NetworkService.shared.testConnectivity()
-                if isConnected {
-                    print("✅ Backend is reachable!")
-                } else {
-                    print("❌ Backend is NOT reachable!")
-                    if let error = NetworkService.shared.connectionError {
-                        print("   Error: \(error)")
-                    }
-                }
-            }
-            
-            // Focus on Cyphr ID field
-            isCyphrIdFocused = true
+        .task {
+            // Check device identity on appear
+            await viewModel.checkDeviceIdentity()
         }
     }
     
@@ -114,12 +102,85 @@ struct CyphrIdSignUpView: View {
                 .fontWeight(.bold)
                 .foregroundColor(.white)
             
-            Text("One device. One identity. Complete sovereignty.")
+            Text("🎯 One Device = One Identity")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.purple)
+            
+            Text("This device will be permanently bound to your new identity")
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
         .padding(.top, 20)
+    }
+    
+    // MARK: - Device Check Section
+    
+    private var deviceCheckSection: some View {
+        VStack(spacing: 15) {
+            if viewModel.deviceHasIdentity {
+                // Device already has identity
+                VStack(spacing: 12) {
+                    Label("Device Identity Violation", systemImage: "exclamationmark.triangle.fill")
+                        .font(.headline)
+                        .foregroundColor(.red)
+                    
+                    if let existingId = viewModel.existingCyphrId {
+                        Text("@\(existingId)")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.red)
+                    }
+                    
+                    Text("This device already has a Cyphr identity. One device can only have one identity.")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                    
+                    Button("Use Existing Identity") {
+                        // Navigate to unlock existing identity
+                        dismiss()
+                    }
+                    .font(.callout)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(Color.red.opacity(0.8))
+                    .cornerRadius(20)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.red.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.red.opacity(0.5), lineWidth: 2)
+                        )
+                )
+            } else {
+                // Device is clean - can create new identity
+                VStack(spacing: 12) {
+                    Label("Device Ready", systemImage: "checkmark.shield.fill")
+                        .font(.headline)
+                        .foregroundColor(.green)
+                    
+                    Text("This device can create a new Cyphr identity")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.green.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                        )
+                )
+            }
+        }
     }
     
     // MARK: - Step Indicator
@@ -129,13 +190,13 @@ struct CyphrIdSignUpView: View {
             ForEach(SignUpStep.allCases, id: \.self) { step in
                 VStack(spacing: 8) {
                     Circle()
-                        .fill(viewModel.currentStep.rawValue >= step.rawValue ? 
+                        .fill(currentStep.rawValue >= step.rawValue ? 
                               Color.purple : Color.white.opacity(0.3))
                         .frame(width: 10, height: 10)
                     
                     Text(step.title)
                         .font(.caption)
-                        .foregroundColor(viewModel.currentStep.rawValue >= step.rawValue ?
+                        .foregroundColor(currentStep.rawValue >= step.rawValue ?
                                        .white : .white.opacity(0.5))
                 }
             }
@@ -147,191 +208,118 @@ struct CyphrIdSignUpView: View {
     
     private var cyphrIdSelectionView: some View {
         VStack(spacing: 25) {
-            VStack(spacing: 15) {
-                Text("Choose Your Unique Cyphr ID")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Text("This will be your permanent identity on Cyphr")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-                
-                // DEBUG: Direct API test button
-                Button(action: {
-                    print("🚨 DEBUG: Testing API directly!")
-                    Task {
-                        do {
-                            print("🚨 Calling checkCyphrIdAvailability...")
-                            let response = try await NetworkService.shared.checkCyphrIdAvailability("testuser123")
-                            print("✅ API Response: available=\(response.available)")
-                            viewModel.validationMessage = "✅ API WORKS! available=\(response.available)"
-                        } catch {
-                            print("❌ API Error: \(error)")
-                            print("   Error type: \(type(of: error))")
-                            print("   Description: \(error.localizedDescription)")
-                            viewModel.validationMessage = "❌ API ERROR: \(error.localizedDescription)"
-                        }
-                    }
-                }) {
-                    Text("🚨 TEST API CONNECTION")
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.red)
-                        .cornerRadius(8)
-                }
-            }
-            
-            // Cyphr ID input
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("@")
-                        .font(.title2)
-                        .foregroundColor(.purple)
+            if viewModel.deviceHasIdentity {
+                // Block creation if device has identity
+                VStack(spacing: 15) {
+                    Text("Cannot Create New Identity")
+                        .font(.headline)
+                        .foregroundColor(.red)
                     
-                    TextField("yourname", text: $textFieldInput)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        #if os(iOS)
-                        .autocapitalization(.none)
-                        #endif
-                        .disableAutocorrection(true)
-                        .focused($isCyphrIdFocused)
-                        .onChange(of: textFieldInput) { newValue in
-                            print("🟢 TextField changed to '\(newValue)'")
-                            viewModel.validateCyphrId(newValue)
-                        }
-                        .onSubmit {
-                            print("🟢 TextField submitted with: \(textFieldInput)")
-                            viewModel.validateCyphrId(textFieldInput)
-                        }
-                    
-                    // Availability indicator
-                    if viewModel.isCheckingAvailability {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else if !viewModel.cyphrIdInput.isEmpty {
-                        Image(systemName: viewModel.isCyphrIdAvailable ? 
-                              "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(viewModel.isCyphrIdAvailable ? .green : .red)
-                    }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(isCyphrIdFocused ? Color.purple : 
-                                       Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
-                
-                // Validation message
-                if let validation = viewModel.validationMessage {
-                    Text(validation)
-                        .font(.caption)
-                        .foregroundColor(viewModel.isCyphrIdAvailable ? .green : .yellow)
-                }
-                
-                // Debug button for manual check
-                Button(action: {
-                    print("🔴 Manual check button pressed for: \(textFieldInput)")
-                    viewModel.validateCyphrId(textFieldInput)
-                }) {
-                    Text("Check Availability")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.purple.opacity(0.7))
-                        .cornerRadius(8)
-                }
-                .padding(.top, 5)
-            }
-            
-            // Suggestions
-            if !viewModel.suggestions.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Suggestions:")
+                    Text("This device is already bound to an identity. Please use the existing identity or reset your device.")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+            } else {
+                // Allow creation
+                VStack(spacing: 15) {
+                    Text("Choose Your Unique Cyphr ID")
+                        .font(.headline)
+                        .foregroundColor(.white)
                     
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(viewModel.suggestions, id: \.self) { suggestion in
-                                Button(action: {
-                                    viewModel.cyphrIdInput = suggestion
-                                    viewModel.validateCyphrId(suggestion)
-                                }) {
-                                    Text("@\(suggestion)")
-                                        .font(.callout)
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 15)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color.purple.opacity(0.3))
-                                                .overlay(
-                                                    Capsule()
-                                                        .stroke(Color.purple, lineWidth: 1)
-                                                )
-                                        )
-                                }
+                    Text("This will be your permanent identity on Cyphr")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                
+                // Cyphr ID input
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("@")
+                            .font(.title2)
+                            .foregroundColor(.purple)
+                        
+                        TextField("yourname", text: $cyphrIdInput)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .focused($isCyphrIdFocused)
+                            .onChange(of: cyphrIdInput) { _, newValue in
+                                viewModel.validateCyphrId(newValue)
+                            }
+                        
+                        // Availability indicator
+                        if viewModel.isCheckingAvailability {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        } else if !cyphrIdInput.isEmpty {
+                            Image(systemName: viewModel.isCyphrIdAvailable ? 
+                                  "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(viewModel.isCyphrIdAvailable ? .green : .red)
+                        }
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(isCyphrIdFocused ? Color.purple : 
+                                           Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                    )
+                    
+                    // Validation message
+                    if let validation = viewModel.validationMessage {
+                        Text(validation)
+                            .font(.caption)
+                            .foregroundColor(viewModel.isCyphrIdAvailable ? .green : .yellow)
+                    }
+                }
+                
+                // Continue button
+                Button(action: {
+                    Task {
+                        isLoading = true
+                        loadingMessage = SignUpLoadingMessages.creatingIdentity
+                        await viewModel.createIdentity(cyphrId: cyphrIdInput)
+                        isLoading = false
+                        
+                        if viewModel.identityCreated {
+                            withAnimation {
+                                currentStep = .securitySetup
                             }
                         }
                     }
-                }
-            }
-            
-            // Continue button
-            Button(action: {
-                Task {
-                    isLoading = true
-                    loadingMessage = LoadingMessages.creatingIdentity
-                    await viewModel.generateIdentity()
-                    isLoading = false
-                }
-            }) {
-                HStack {
-                    if viewModel.isCheckingAvailability {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                        Text("Generating...")
-                    } else {
-                        Text("Generate Identity")
+                }) {
+                    HStack {
+                        Text("Create Identity")
                         Image(systemName: "arrow.right")
                     }
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(
-                    LinearGradient(
-                        colors: viewModel.canProceed ? [.purple, .blue] : 
-                               [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: viewModel.canProceed ? [.purple, .blue] : 
+                                   [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .cornerRadius(15)
+                    .cornerRadius(15)
+                }
+                .disabled(!viewModel.canProceed || viewModel.isCheckingAvailability || isLoading)
             }
-            .disabled(!viewModel.canProceed || viewModel.isCheckingAvailability)
-            
-            // Zero-knowledge info
-            VStack(spacing: 8) {
-                Label("No email required", systemImage: "envelope.slash")
-                Label("No phone required", systemImage: "phone.slash")
-                Label("No password required", systemImage: "lock.slash")
-            }
-            .font(.caption)
-            .foregroundColor(.white.opacity(0.5))
         }
         .onAppear {
-            isCyphrIdFocused = true
+            if !viewModel.deviceHasIdentity {
+                isCyphrIdFocused = true
+            }
         }
     }
     
@@ -349,7 +337,7 @@ struct CyphrIdSignUpView: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                 
-                Text("Write down these 12 words in order. This is the ONLY way to recover your identity if you lose your device.")
+                Text("Write down these 12 words in order. This is the ONLY way to recover your identity.")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -393,55 +381,29 @@ struct CyphrIdSignUpView: View {
                 )
             }
             
-            // Copy button
-            Button(action: {
-                #if os(iOS)
-                UIPasteboard.general.string = viewModel.recoveryPhrase?.joined(separator: " ")
-                #else
-                // macOS clipboard
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(viewModel.recoveryPhrase?.joined(separator: " ") ?? "", forType: .string)
-                #endif
-                viewModel.showCopiedConfirmation()
-            }) {
-                Label("Copy to Clipboard", systemImage: "doc.on.doc")
-                    .font(.callout)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            
-            // Confirmation toggle
-            Toggle(isOn: $hasBackedUpPhrase) {
-                Text("I have written down my recovery phrase")
-                    .font(.callout)
-                    .foregroundColor(.white)
-            }
-            .toggleStyle(SwitchToggleStyle(tint: .purple))
-            
             // Continue button
             Button(action: {
                 Task {
-                    await viewModel.completeSignUp()
+                    await viewModel.completeRegistration()
+                    withAnimation {
+                        currentStep = .complete
+                    }
                 }
             }) {
-                HStack {
-                    Text("Complete Setup")
-                    Image(systemName: "checkmark.circle")
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(
-                    LinearGradient(
-                        colors: hasBackedUpPhrase ? [.purple, .blue] : 
-                               [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                Text("I've Saved My Recovery Phrase")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [.purple, .blue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .cornerRadius(15)
+                    .cornerRadius(15)
             }
-            .disabled(!hasBackedUpPhrase)
         }
     }
     
@@ -458,25 +420,27 @@ struct CyphrIdSignUpView: View {
                 .fontWeight(.bold)
                 .foregroundColor(.white)
             
-            Text("@\(viewModel.finalCyphrId)")
-                .font(.title)
-                .fontWeight(.semibold)
-                .foregroundColor(.purple)
+            if let cyphrId = viewModel.finalCyphrId {
+                Text("@\(cyphrId)")
+                    .font(.title)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.purple)
+            }
             
             VStack(spacing: 15) {
-                Label("Your identity is stored in iOS Secure Enclave", 
+                Label("Identity bound to this device", 
                       systemImage: "lock.shield.fill")
-                Label("Only you control your private keys", 
+                Label("Keys secured in Secure Enclave", 
                       systemImage: "key.fill")
-                Label("Zero server knowledge of your data", 
+                Label("Zero server knowledge achieved", 
                       systemImage: "eye.slash.fill")
             }
             .font(.callout)
             .foregroundColor(.white.opacity(0.8))
             
             Button(action: {
-                // Navigate to main app
-                dismiss()
+                // Complete registration and auto-login
+                completeRegistration()
             }) {
                 Text("Start Messaging")
                     .font(.headline)
@@ -495,19 +459,37 @@ struct CyphrIdSignUpView: View {
             .padding(.top)
         }
     }
+    
+    // MARK: - Actions
+    
+    private func completeRegistration() {
+        // Send notification for auto-login
+        if let cyphrId = viewModel.finalCyphrId {
+            NotificationCenter.default.post(
+                name: Notification.Name("UserRegistered"),
+                object: nil,
+                userInfo: [
+                    "cyphrId": cyphrId,
+                    "token": AuthTokenStore.load() ?? ""
+                ]
+            )
+        }
+        
+        dismiss()
+    }
 }
 
 // MARK: - View Model
 
-class CyphrIdSignUpViewModel: ObservableObject {
-    @Published var currentStep: SignUpStep = .chooseCyphrId
-    @Published var cyphrIdInput = ""
+class SignUpViewModel: ObservableObject {
+    @Published var deviceHasIdentity = false
+    @Published var existingCyphrId: String?
     @Published var isCyphrIdAvailable = false
     @Published var isCheckingAvailability = false
     @Published var validationMessage: String?
-    @Published var suggestions: [String] = []
+    @Published var identityCreated = false
     @Published var recoveryPhrase: [String]?
-    @Published var finalCyphrId = ""
+    @Published var finalCyphrId: String?
     @Published var showError = false
     @Published var errorMessage = ""
     
@@ -516,22 +498,36 @@ class CyphrIdSignUpViewModel: ObservableObject {
     private var checkTask: Task<Void, Never>?
     
     var canProceed: Bool {
-        !cyphrIdInput.isEmpty && 
-        cyphrIdInput.count >= 3 && 
-        isCyphrIdAvailable
+        !deviceHasIdentity && isCyphrIdAvailable
+    }
+    
+    @MainActor
+    func checkDeviceIdentity() async {
+        print("🔍 Checking device identity status...")
+        
+        do {
+            existingCyphrId = try await cyphrIdentity.checkStoredIdentity()
+            deviceHasIdentity = existingCyphrId != nil
+            
+            if let existing = existingCyphrId {
+                print("⚠️ Device already has identity: @\(existing)")
+            } else {
+                print("✅ Device is clean - can create new identity")
+            }
+        } catch {
+            print("❌ Error checking device identity: \(error)")
+            deviceHasIdentity = false
+        }
     }
     
     @MainActor
     func validateCyphrId(_ input: String) {
-        print("🔵 validateCyphrId called with: \(input)")
+        print("🔵 Validating Cyphr ID: \(input)")
         
         // Cancel previous check
         checkTask?.cancel()
         
-        // Validate format
         let cleaned = input.lowercased().replacingOccurrences(of: "@", with: "")
-        cyphrIdInput = cleaned
-        print("🔵 Cleaned input: \(cleaned)")
         
         guard cleaned.count >= 3 else {
             validationMessage = "Minimum 3 characters"
@@ -553,10 +549,8 @@ class CyphrIdSignUpViewModel: ObservableObject {
         
         // Check availability with debounce
         checkTask = Task {
-            // Add 500ms delay to avoid too many requests
             try? await Task.sleep(nanoseconds: 500_000_000)
             
-            // Check if task was cancelled during sleep
             if !Task.isCancelled {
                 await checkAvailability(cleaned)
             }
@@ -572,153 +566,49 @@ class CyphrIdSignUpViewModel: ObservableObject {
             
             if !Task.isCancelled {
                 isCyphrIdAvailable = response.available
-                
-                if response.available {
-                    validationMessage = "Available!"
-                    suggestions = []
-                } else {
-                    validationMessage = "Already taken"
-                    // Generate suggestions
-                    suggestions = generateSuggestions(for: cyphrId)
-                }
+                validationMessage = response.available ? "Available!" : "Already taken"
             }
         } catch {
             if !Task.isCancelled {
-                print("❌ Error checking Cyphr ID availability: \(error)")
-                print("   Error type: \(type(of: error))")
-                print("   Error description: \(error.localizedDescription)")
-                
-                // Show user-friendly error message
+                print("❌ Error checking availability: \(error)")
                 validationMessage = "Error checking availability"
                 isCyphrIdAvailable = false
-                
-                // Log the detailed error for debugging
-                if let networkError = error as? NetworkError {
-                    print("   Network error details: \(networkError.errorDescription ?? "Unknown")")
-                    validationMessage = networkError.errorDescription ?? "Network error"
-                } else if let urlError = error as? URLError {
-                    print("   URL error code: \(urlError.code)")
-                    print("   URL error description: \(urlError.localizedDescription)")
-                    validationMessage = "Connection failed"
-                }
             }
         }
         
         isCheckingAvailability = false
     }
     
-    private func generateSuggestions(for base: String) -> [String] {
-        var suggestions: [String] = []
-        
-        // Add random numbers
-        for _ in 0..<3 {
-            let random = Int.random(in: 100...999)
-            suggestions.append("\(base)\(random)")
-        }
-        
-        // Add underscore variations
-        suggestions.append("\(base)_\(Int.random(in: 10...99))")
-        suggestions.append("_\(base)")
-        
-        return suggestions
-    }
-    
     @MainActor
-    func generateIdentity() async {
-        // Show loading state
-        isCheckingAvailability = true
+    func createIdentity(cyphrId: String) async {
+        print("🚀 Creating identity for @\(cyphrId) (Device bound)")
         
         do {
-            // Generate cryptographic identity WITH chosen username
-            let identity = try await cyphrIdentity.generateIdentity(cyphrId: cyphrIdInput)
-            
-            // Set the final Cyphr ID to what user chose
-            finalCyphrId = cyphrIdInput
-            
-            // Store recovery phrase
-            recoveryPhrase = identity.recoveryPhrase
-            
-            // Register with backend (only public key + Cyphr ID)
-            #if os(iOS)
-            let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-            let deviceModel = UIDevice.current.model
-            let osVersion = UIDevice.current.systemVersion
-            #else
-            let deviceId = UUID().uuidString
-            let deviceModel = "macOS"
-            let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
-            #endif
-            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-            
-            let deviceInfo = DeviceInfo(
-                deviceId: deviceId,
-                deviceModel: deviceModel,
-                osVersion: osVersion,
-                appVersion: appVersion
-            )
-            
-            // Wrap backend registration in separate do-catch for better error handling
-            do {
-                let registered = try await networkService.registerCyphrIdentity(
-                    cyphrId: cyphrIdInput,
-                    publicKey: identity.publicKey,
-                    deviceInfo: deviceInfo
-                )
-                
-                if registered.success {
-                    // Move to security setup step
-                    withAnimation {
-                        currentStep = .securitySetup
-                    }
-                    // Persist username early to enable auto-check on next launch
-                    UserDefaults.standard.set(cyphrIdInput, forKey: "cyphr_id")
-                } else {
-                    // Registration failed; show server message if provided
-                    let serverMessage = registered.error ?? registered.message ?? "Registration failed. Please try another ID."
-                    errorMessage = serverMessage
-                    showError = true
-                    print("❌ Registration returned success: false")
-                }
-            } catch let networkError as NetworkError {
-                // Handle specific network errors
-                errorMessage = networkError.errorDescription ?? "Network error occurred. Please check your connection."
+            // Double-check device doesn't have identity
+            if let existing = try await cyphrIdentity.checkStoredIdentity() {
+                errorMessage = "Device already has identity: @\(existing)"
                 showError = true
-                print("❌ Network error during registration: \(networkError)")
-            } catch {
-                // Handle general network/registration errors
-                errorMessage = "Failed to register with server. Please try again."
-                showError = true
-                print("❌ Registration error: \(error)")
+                return
             }
+            
+            let result = try await AuthenticationService.shared.registerCyphrId(cyphrId: cyphrId)
+
+            finalCyphrId = result.cyphrId
+            recoveryPhrase = result.recoveryPhrase
+            identityCreated = result.success
+            print("✅ Identity created and registered: @\(result.cyphrId)")
         } catch {
-            // Handle identity generation errors
-            errorMessage = "Failed to generate secure identity. Please try again."
+            errorMessage = "Failed to create identity: \(error.localizedDescription)"
             showError = true
-            print("❌ Identity generation error: \(error)")
+            identityCreated = false
+            finalCyphrId = nil
+            recoveryPhrase = nil
         }
-        
-        // Hide loading state
-        isCheckingAvailability = false
     }
     
-    @MainActor
-    func completeSignUp() async {
-        // Identity is already stored in Secure Enclave
-        // Just mark as complete
-        withAnimation {
-            currentStep = .complete
-        }
-        
-        // Store that user has completed signup
-        UserDefaults.standard.set(true, forKey: "cyphr_signup_completed")
-        UserDefaults.standard.set(finalCyphrId, forKey: "cyphr_id")
-    }
-    
-    func showCopiedConfirmation() {
-        validationMessage = "Copied to clipboard!"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            self.validationMessage = nil
-        }
+    @MainActor 
+    func completeRegistration() async {
+        print("🎉 Registration completed for @\(finalCyphrId ?? "unknown")")
     }
 }
 
@@ -740,10 +630,8 @@ enum SignUpStep: Int, CaseIterable {
     }
 }
 
-// MARK: - Preview
-
-struct CyphrIdSignUpView_Previews: PreviewProvider {
-    static var previews: some View {
-        CyphrIdSignUpView()
-    }
+struct SignUpLoadingMessages {
+    static let creatingIdentity = "Creating your secure identity..."
+    static let registeringWithServer = "Registering with server..."
+    static let generatingKeys = "Generating cryptographic keys..."
 }

@@ -10,12 +10,9 @@ let package = Package(
         .iOS(.v16)
     ],
     products: [
-        .library(
+        .executable(
             name: "CyphrNative",
             targets: ["CyphrNative"]),
-        .executable(
-            name: "TestKyber",
-            targets: ["TestKyber"]),
     ],
     dependencies: [
         // SwiftKyber - НАСТОЯЩАЯ реализация NIST FIPS 203 Kyber
@@ -28,7 +25,7 @@ let package = Package(
         .package(url: "https://github.com/socketio/socket.io-client-swift", from: "16.1.0"),
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "CyphrNative",
             dependencies: [
                 "SwiftKyber",
@@ -38,9 +35,10 @@ let package = Package(
             path: ".",
             exclude: [
                 "SwiftKyber",
-                "main.swift",
-                "TestKyber.swift", 
-                "SimpleApp.swift"
+                "TestKyber.swift",
+                "LaunchScreen.storyboard",
+                ".build",
+                "build"
             ],
             sources: [
                 "CyphrApp.swift",
@@ -48,6 +46,8 @@ let package = Package(
                 "PostQuantumCrypto.swift",
                 "NetworkService.swift",
                 "MessagingService.swift",
+                "NetworkBannerView.swift",
+                "PinUnlockView.swift",
                 "HDWalletService.swift",
                 "WelcomeView.swift",
                 "CyphrIdSignUpView.swift",
@@ -67,19 +67,18 @@ let package = Package(
                 "RecoveryPhraseView.swift",
                 "AuthMethodSelectionView.swift",
                 "UsernameValidator.swift",
-                "S3Service.swift"
+                "S3Service.swift",
+                "BiometricAuthService.swift",
+                "EnterpriseKeychainService.swift",
+                "DeviceIdentityService.swift",
+                "SecureEnclaveService.swift",
+                "View+OnChangeCompat.swift",
+                "ImagePicker.swift",
+                "WebRTCService.swift"
             ],
             resources: [
-                .process("Assets.xcassets"),
-                .process("LaunchScreen.storyboard")
+                .process("Assets.xcassets")
             ]
-        ),
-        .executableTarget(
-            name: "TestKyber",
-            dependencies: ["SwiftKyber"],
-            path: ".",
-            exclude: ["LaunchScreen.storyboard", "Assets.xcassets"],
-            sources: ["main.swift"]
         ),
     ]
 )

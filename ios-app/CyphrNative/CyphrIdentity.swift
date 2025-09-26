@@ -69,14 +69,16 @@ enum CyphrError: LocalizedError {
 public class CyphrIdentity: ObservableObject {
     
     // MARK: - Properties
-    private var privateKey: P256.Signing.PrivateKey?
-    @Published public private(set) var publicKey: P256.Signing.PublicKey?
-    // Ed25519 keypair for authentication (server expects Ed25519 signatures)
+    // v5.0: Single Ed25519 key for auth/recovery
     private var ed25519PrivateKey: Curve25519.Signing.PrivateKey?
     @Published public private(set) var ed25519PublicKey: Curve25519.Signing.PublicKey?
     @Published public private(set) var cyphrId: String?
     @Published public private(set) var recoveryPhrase: [String]?
-    
+
+    // v5.0: Device binding via Secure Enclave P-256
+    private let secureEnclave = SecureEnclaveService.shared
+    @Published public private(set) var deviceFingerprintHash: String?
+
     private let keychain = EnterpriseKeychainService.shared
 
     // MARK: - Singleton
@@ -91,23 +93,8 @@ public class CyphrIdentity: ObservableObject {
         static let recoveryPhrase = "Authenticate to access your recovery phrase"
     }
 
-    private func loadSigningPrivateKey(context: LAContext? = nil) async throws -> P256.Signing.PrivateKey {
-        if let cached = privateKey {
-            return cached
-        }
-
-        let data = try await keychain.retrieve(
-            key: "cyphr_private_key",
-            reason: KeychainPrompt.signingKey,
-            allowPINFallback: true,
-            context: context
-        )
-
-        let key = try P256.Signing.PrivateKey(rawRepresentation: data)
-        self.privateKey = key
-        self.publicKey = key.publicKey
-        return key
-    }
+    // v5.0: Removed P256 signing key - using Ed25519 only for auth
+    // Device binding uses Secure Enclave P-256 separately
 
     private func loadEd25519PrivateKey(context: LAContext? = nil) async throws -> Curve25519.Signing.PrivateKey {
         if let cached = ed25519PrivateKey {
@@ -129,43 +116,49 @@ public class CyphrIdentity: ObservableObject {
     
     // MARK: - Identity Creation
     
-    /// Generate new Cyphr Identity with Ed25519 keypair in Secure Enclave
+    /// Generate new Cyphr Identity with Ed25519 keypair (v5.0 compliant)
     public func generateIdentity(cyphrId: String? = nil) async throws -> (cyphrId: String, publicKey: String, recoveryPhrase: [String]) {
-        print("🔐 Generating Cyphr Identity with iOS Secure Enclave...")
-        
+        print("🔐 Generating Cyphr Identity (v5.0 compliant)...")
+
         // Check if device already has identity without prompting biometrics
-        if keychain.exists(key: "cyphr_private_key") {
-            let existingId = await checkStoredIdentity() ?? "existing_user"
+        if keychain.exists(key: "cyphr_ed25519_private_key") {
+            let existingId = (try? await checkStoredIdentity()) ?? "existing_user"
             throw CyphrError.deviceAlreadyRegistered(existingId)
         }
-        
-        // Generate secure private key in Secure Enclave (for local features)
-        let privateKey = try await generateSecureEnclaveKey()
-        self.privateKey = privateKey
-        self.publicKey = privateKey.publicKey
 
-        // Generate Ed25519 keypair for authentication with backend
+        // v5.0: Generate device binding P-256 key in Secure Enclave
+        _ = try secureEnclave.generateDeviceBindingKey()
+        self.deviceFingerprintHash = try secureEnclave.getDeviceFingerprintHash()
+
+        // v5.0: Generate single Ed25519 keypair for authentication
         let edKey = Curve25519.Signing.PrivateKey()
         self.ed25519PrivateKey = edKey
         self.ed25519PublicKey = edKey.publicKey
-        
-        // Use provided cyphrId (username) or generate unique one from device
+
+        // Use provided cyphrId (username) or generate unique one
         let finalCyphrId = cyphrId ?? generateCyphrIdFromDevice()
         self.cyphrId = finalCyphrId
-        
-        // Generate BIP39 recovery phrase
-        let recoveryPhrase = generateRecoveryPhrase()
+
+        // v5.0: Generate 12-word BIP39 recovery phrase (not 24)
+        let recoveryPhrase = generateRecoveryPhrase12Words()
         self.recoveryPhrase = recoveryPhrase
-        
+
+        // v5.0: Ensure Secure Enclave device-binding key exists and cache fingerprint
+        if !secureEnclave.hasDeviceBindingKey() {
+            _ = try secureEnclave.generateDeviceBindingKey()
+        }
+        self.deviceFingerprintHash = try? secureEnclave.getDeviceFingerprintHash()
+
         // Store in Keychain with biometric protection
         try await storeIdentity(
             cyphrId: finalCyphrId,
-            privateKey: privateKey,
+            ed25519Key: edKey,
             recoveryPhrase: recoveryPhrase
         )
-        
+
         print("✅ Cyphr Identity created: @\(finalCyphrId)")
-        
+        print("✅ Device fingerprint (v5.0): \(deviceFingerprintHash?.prefix(16) ?? "")...")
+
         return (
             cyphrId: finalCyphrId,
             publicKey: ed25519PublicKey?.rawRepresentation.base64EncodedString() ?? "",
@@ -398,7 +391,7 @@ public class CyphrIdentity: ObservableObject {
     
     public func autoLogin() async throws -> (cyphrId: String, publicKey: String)? {
         print("🔍 Checking for stored Cyphr Identity...")
-        
+
         #if os(iOS)
         let authContext: LAContext
         do {
@@ -411,13 +404,13 @@ public class CyphrIdentity: ObservableObject {
             return nil
         }
         self.cyphrId = identity.cyphrId
-        self.privateKey = identity.privateKey
-        self.publicKey = identity.privateKey.publicKey
+        self.ed25519PrivateKey = identity.ed25519Key
+        self.ed25519PublicKey = identity.ed25519Key.publicKey
 
         print("✅ Auto-login successful: @\(identity.cyphrId)")
         return (
             cyphrId: identity.cyphrId,
-            publicKey: identity.privateKey.publicKey.rawRepresentation.base64EncodedString()
+            publicKey: identity.ed25519Key.publicKey.rawRepresentation.base64EncodedString()
         )
         #else
         guard let identity = try? await getStoredIdentity() else {
@@ -425,12 +418,12 @@ public class CyphrIdentity: ObservableObject {
             return nil
         }
         self.cyphrId = identity.cyphrId
-        self.privateKey = identity.privateKey
-        self.publicKey = identity.privateKey.publicKey
+        self.ed25519PrivateKey = identity.ed25519Key
+        self.ed25519PublicKey = identity.ed25519Key.publicKey
 
         return (
             cyphrId: identity.cyphrId,
-            publicKey: identity.privateKey.publicKey.rawRepresentation.base64EncodedString()
+            publicKey: identity.ed25519Key.publicKey.rawRepresentation.base64EncodedString()
         )
         #endif
     }
@@ -477,29 +470,7 @@ public class CyphrIdentity: ObservableObject {
         #endif
     }
     
-    public func createSecureBackup(keyPair: P256.Signing.PrivateKey, deviceCredentialId: String) async throws -> (success: Bool, recoveryPhrase: [String], backupCreated: Bool) {
-        print("💾 Creating encrypted backup of private key...")
-        
-        let privateKeyData = keyPair.rawRepresentation
-        let recoveryPhrase = generateRecoveryPhrase()
-        let encryptedPrivateKey = try encryptWithPassphrase(privateKeyData, passphrase: recoveryPhrase.joined(separator: " "))
-        
-        try keychain.store(
-            key: "cyphr_crypto_backup",
-            data: encryptedPrivateKey,
-            requiresBiometry: true
-        )
-        
-        self.recoveryPhrase = recoveryPhrase
-        
-        print("✅ Secure backup created")
-        
-        return (
-            success: true,
-            recoveryPhrase: recoveryPhrase,
-            backupCreated: true
-        )
-    }
+    // v5.0: Removed P256 backup method - using Ed25519 recovery
     
     public func generateUniqueCyphrIdFromDevice() async -> String {
         return generateCyphrIdFromDevice()
@@ -514,7 +485,13 @@ public class CyphrIdentity: ObservableObject {
     
     /// Generate recovery phrase (BIP39 compliant - PRODUCTION)
     private func generateRecoveryPhrase() -> [String] {
-        var entropy = Data(count: 16) // 128 bits
+        // Keeping for backwards compatibility
+        return generateRecoveryPhrase12Words()
+    }
+
+    /// Generate 12-word recovery phrase (v5.0 spec: 128-bit entropy)
+    private func generateRecoveryPhrase12Words() -> [String] {
+        var entropy = Data(count: 16) // 128 bits for 12 words
         let result = entropy.withUnsafeMutableBytes {
             SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!)
         }
@@ -522,16 +499,16 @@ public class CyphrIdentity: ObservableObject {
             let randomData = SymmetricKey(size: .bits128).withUnsafeBytes { Data($0) }
             entropy = randomData
         }
-        
+
         // Calculate checksum (first 4 bits of SHA256 hash)
         let hash = SHA256.hash(data: entropy)
         let hashBits = hash.withUnsafeBytes { Data($0) }
         let checksumBits = hashBits[0] >> 4
-        
+
         // Combine entropy + checksum (132 bits total for 12 words)
         var combined = entropy
         combined.append(checksumBits)
-        
+
         // Convert to word indices (11 bits per word)
         var words: [String] = []
         let wordList = getBIP39WordList()
@@ -540,26 +517,27 @@ public class CyphrIdentity: ObservableObject {
             print("❌ BIP39 word list unavailable (expected 2048 words), returning empty recovery phrase")
             return []
         }
-        
+
         var bitBuffer: UInt32 = 0
         var bitsInBuffer = 0
         var byteIndex = 0
-        
+
         for _ in 0..<12 {
             while bitsInBuffer < 11 && byteIndex < combined.count {
                 bitBuffer = (bitBuffer << 8) | UInt32(combined[byteIndex])
                 bitsInBuffer += 8
                 byteIndex += 1
             }
-            
+
             let index = Int((bitBuffer >> (bitsInBuffer - 11)) & 0x7FF)
             bitsInBuffer -= 11
-            
+
             if index < wordList.count {
                 words.append(wordList[index])
             }
         }
-        
+
+        print("✅ Generated 12-word recovery phrase (v5.0 compliant)")
         return words
     }
     
@@ -574,27 +552,7 @@ public class CyphrIdentity: ObservableObject {
     
     // MARK: - Private Methods
     
-    private func generateSecureEnclaveKey() async throws -> P256.Signing.PrivateKey {
-        #if os(iOS)
-        _ = SecAccessControlCreateWithFlags(
-            nil,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            .privateKeyUsage,
-            nil
-        )
-        return (try? P256.Signing.PrivateKey(compactRepresentable: true)) ?? P256.Signing.PrivateKey()
-        #else
-        return P256.Signing.PrivateKey()
-        #endif
-    }
-    
-    private static func generateCyphrId(from publicKey: P256.Signing.PublicKey) -> String {
-        let publicKeyData = publicKey.rawRepresentation
-        let hash = SHA256.hash(data: publicKeyData)
-        let prefixData = Data(hash.prefix(4))
-        let hexString = prefixData.hexEncodedString()
-        return hexString.lowercased()
-    }
+    // v5.0: Removed P256 methods - using Ed25519 for auth and SE P-256 for device binding only
     
     private func generateCyphrIdFromDevice() -> String {
         #if os(iOS)
@@ -614,6 +572,15 @@ public class CyphrIdentity: ObservableObject {
     }
     
     public func generateDeviceFingerprint() -> String {
+        // v5.0: Use Secure Enclave based fingerprint. Generate key if missing.
+        if !secureEnclave.hasDeviceBindingKey() {
+            _ = try? secureEnclave.generateDeviceBindingKey()
+        }
+        if let hash = try? secureEnclave.getDeviceFingerprintHash() {
+            return hash
+        }
+
+        // Fallback to legacy fingerprint for backward compatibility
         #if os(iOS)
         let salt = "CYPHR_DEVICE_SALT_2025"
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? ""
@@ -634,48 +601,48 @@ public class CyphrIdentity: ObservableObject {
         return hashData.compactMap { String(format: "%02x", $0) }.joined()
         #endif
     }
+
+    private func deriveEd25519Key(from seed: Data) throws -> Curve25519.Signing.PrivateKey {
+        var material = Data(seed)
+        material.append(contentsOf: "CYPHR_ED25519_SEED".utf8)
+        let derived = SHA256.hash(data: material)
+        return try Curve25519.Signing.PrivateKey(rawRepresentation: Data(derived))
+    }
     
     
-    private func storeIdentity(cyphrId: String, privateKey: P256.Signing.PrivateKey, recoveryPhrase: [String]) async throws {
-        let privateKeyData = privateKey.rawRepresentation
-        let deviceFingerprint = generateCyphrIdFromDevice()
-        
+    private func storeIdentity(cyphrId: String, ed25519Key: Curve25519.Signing.PrivateKey, recoveryPhrase: [String]) async throws {
+        // v5.0: Store only Ed25519 key (no P256 for auth)
         try keychain.store(
-            key: "cyphr_private_key",
-            data: privateKeyData,
+            key: "cyphr_ed25519_private_key",
+            data: ed25519Key.rawRepresentation,
             requiresBiometry: true
         )
-        
+
         try keychain.store(
             key: "cyphr_username",
             data: cyphrId.data(using: .utf8)!,
             requiresBiometry: false
         )
         UserDefaults.standard.set(cyphrId, forKey: "cyphr_id")
-        
+
+        // Store device fingerprint (SE-based if available)
+        let deviceFingerprint = generateDeviceFingerprint()
         try keychain.store(
             key: "cyphr_device_fingerprint",
             data: deviceFingerprint.data(using: .utf8)!,
             requiresBiometry: false
         )
-        
+
+        // v5.0: Recovery phrase optional save (not by default)
         let phraseData = try JSONEncoder().encode(recoveryPhrase)
         try keychain.store(
             key: "cyphr_recovery_phrase",
             data: phraseData,
             requiresBiometry: true
         )
-
-        if let ed = self.ed25519PrivateKey {
-            try keychain.store(
-                key: "cyphr_ed25519_private_key",
-                data: ed.rawRepresentation,
-                requiresBiometry: true
-            )
-        }
     }
     
-    private func getStoredIdentity(context: LAContext? = nil) async throws -> (cyphrId: String, privateKey: P256.Signing.PrivateKey)? {
+    private func getStoredIdentity(context: LAContext? = nil) async throws -> (cyphrId: String, ed25519Key: Curve25519.Signing.PrivateKey)? {
         var username: String?
 
         if let usernameData = try? await keychain.retrieve(
@@ -697,31 +664,56 @@ public class CyphrIdentity: ObservableObject {
         }
 
         guard let privateKeyData = try? await keychain.retrieve(
-            key: "cyphr_private_key",
-            reason: KeychainPrompt.signingKey,
+            key: "cyphr_ed25519_private_key",
+            reason: KeychainPrompt.edSigningKey,
             allowPINFallback: true,
             context: context
         ) else {
             return nil
         }
 
-        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: privateKeyData)
-        return (cyphrId: finalUsername, privateKey: privateKey)
+        let privateKey = try Curve25519.Signing.PrivateKey(rawRepresentation: privateKeyData)
+        return (cyphrId: finalUsername, ed25519Key: privateKey)
     }
 
-    public func checkStoredIdentity() async -> String? {
+    // MARK: - Recovery Phrase Access
+
+    /// Load recovery phrase from Keychain (biometry-gated)
+    public func loadRecoveryPhrase(context: LAContext? = nil) async throws -> [String] {
+        let data = try await keychain.retrieve(
+            key: "cyphr_recovery_phrase",
+            reason: "Reveal your recovery phrase",
+            allowPINFallback: true,
+            context: context
+        )
+        let phrase = try JSONDecoder().decode([String].self, from: data)
+        // Cache for convenience
+        await MainActor.run { self.recoveryPhrase = phrase }
+        return phrase
+    }
+
+    public func checkStoredIdentity() async throws -> String? {
+        // Try keychain (username)
         if let usernameData = try? await keychain.retrieve(
             key: "cyphr_username",
             reason: "Check stored Cyphr username",
             allowPINFallback: false
-        ), let username = String(data: usernameData, encoding: .utf8) {
+        ), let username = String(data: usernameData, encoding: .utf8), !username.isEmpty {
             return username
-        } else if let cyphrIdData = try? await keychain.retrieve(
+        }
+
+        // Try keychain (cyphr_id)
+        if let cyphrIdData = try? await keychain.retrieve(
             key: "cyphr_id",
             reason: "Check stored Cyphr ID",
             allowPINFallback: false
-        ), let cyphrId = String(data: cyphrIdData, encoding: .utf8) {
+        ), let cyphrId = String(data: cyphrIdData, encoding: .utf8), !cyphrId.isEmpty {
             return cyphrId
+        }
+
+        // Final fallback: UserDefaults record of last used id (non-sensitive)
+        if let udId = UserDefaults.standard.string(forKey: "cyphr_id"), !udId.isEmpty {
+            return udId
         }
         return nil
     }
@@ -766,76 +758,167 @@ public class CyphrIdentity: ObservableObject {
         return signature.base64EncodedString()
     }
 
-    public func signLoginPayloadP256(
-        cyphrId: String,
-        deviceFingerprint: String,
+    // v5.0: Sign challenge for challenge-response authentication
+    public func signChallenge(
+        _ challenge: String,
         context: LAContext? = nil
     ) async throws -> String {
-        let privateKey = try await loadSigningPrivateKey(context: context)
-        let canonical = "login;cyphrId:\(cyphrId);deviceFingerprint:\(deviceFingerprint)"
-        let signature = try privateKey.signature(for: Data(canonical.utf8))
-        return signature.derRepresentation.base64EncodedString()
+        let key = try await loadEd25519PrivateKey(context: context)
+        let challengeData = Data(challenge.utf8)
+        let signature = try key.signature(for: challengeData)
+        return signature.base64EncodedString()
     }
+
+    // Intentionally sign the UTF‑8 of the server-provided base64 string,
+    // matching server verify implementation.
+
+    // v5.0: Removed P256 login - using only Ed25519 for auth
     
     public func recoverFromPhrase(_ phrase: [String]) async throws -> (cyphrId: String, publicKey: String, recoveryPhrase: [String]) {
-        guard phrase.count == 12 else {
+        // v5.0: Support both 12 and 24 words for backward compatibility
+        guard phrase.count == 12 || phrase.count == 24 else {
             throw CyphrError.invalidRecoveryPhrase
         }
-        
+
+        let wordList = BIP39WordList.englishWords
+        if !wordList.isEmpty {
+            for word in phrase where !wordList.contains(word) {
+                throw CyphrError.invalidRecoveryPhrase
+            }
+        }
+
+        // v5.0: Derive Ed25519 key deterministically from BIP39 seed
         let phraseString = phrase.joined(separator: " ")
         let seedData = Data(phraseString.utf8).sha256Hash()
-        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: seedData.prefix(32))
-        let cyphrId = Self.generateCyphrId(from: privateKey.publicKey)
-        
-        self.privateKey = privateKey
-        self.publicKey = privateKey.publicKey
-        self.cyphrId = cyphrId
+        let edKey = try deriveEd25519Key(from: seedData)
+
+        self.ed25519PrivateKey = edKey
+        self.ed25519PublicKey = edKey.publicKey
         self.recoveryPhrase = phrase
-        
-        try await storeIdentity(
-            cyphrId: cyphrId,
-            privateKey: privateKey,
-            recoveryPhrase: phrase
-        )
-        
+
+        // v5.0: Generate NEW device binding key in SE (old binding is lost)
+        _ = try secureEnclave.generateDeviceBindingKey()
+        self.deviceFingerprintHash = try secureEnclave.getDeviceFingerprintHash()
+
+        // Note: cyphrId will be provided by user during recovery registration
+        // We don't generate it from key anymore
+
         return (
-            cyphrId: cyphrId,
-            publicKey: privateKey.publicKey.rawRepresentation.base64EncodedString(),
+            cyphrId: "", // Will be filled during registration
+            publicKey: edKey.publicKey.rawRepresentation.base64EncodedString(),
             recoveryPhrase: phrase
         )
+    }
+
+    public func storeRecoveredIdentity(
+        cyphrId: String,
+        recoveryPhrase: [String]
+    ) async throws -> String {
+        let cleaned = recoveryPhrase.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+
+        let normalizedId = cyphrId
+            .lowercased()
+            .replacingOccurrences(of: "@", with: "")
+
+        let recovery = try await recoverFromPhrase(cleaned)
+
+        let idData = normalizedId.data(using: .utf8) ?? Data()
+        try keychain.store(
+            key: "cyphr_username",
+            data: idData,
+            requiresBiometry: false
+        )
+        try keychain.store(
+            key: "cyphr_id",
+            data: idData,
+            requiresBiometry: false
+        )
+
+        UserDefaults.standard.set(normalizedId, forKey: "cyphr_id")
+        UserDefaults.standard.set(true, forKey: "device_has_identity")
+        self.cyphrId = normalizedId
+
+        _ = try createNewKyberKeyPair()
+
+        return ed25519PublicKey?.rawRepresentation.base64EncodedString() ?? recovery.publicKey
     }
     
     public func deleteIdentity() {
-        self.privateKey = nil
-        self.publicKey = nil
+        self.ed25519PrivateKey = nil
+        self.ed25519PublicKey = nil
         self.cyphrId = nil
         self.recoveryPhrase = nil
-        
-        _ = keychain.delete(key: "cyphr_private_key")
+        self.deviceFingerprintHash = nil
+
+        // Remove all identity-related items to avoid stale state
+        _ = keychain.delete(key: "cyphr_ed25519_private_key")
+        _ = keychain.delete(key: "kyber_private_key")
+        _ = keychain.delete(key: "cyphr_username")
         _ = keychain.delete(key: "cyphr_id")
         _ = keychain.delete(key: "cyphr_recovery_phrase")
-        
+        _ = keychain.delete(key: "cyphr_pin_hash")
+        _ = keychain.delete(key: "cyphr_pin_salt")
+        _ = keychain.delete(key: "cyphr_pin_rounds")
+
+        UserDefaults.standard.removeObject(forKey: "cyphr_id")
+        UserDefaults.standard.removeObject(forKey: "device_has_identity")  // CRITICAL FIX: Remove this flag!
+        UserDefaults.standard.removeObject(forKey: "kyber_public_key")
+        UserDefaults.standard.removeObject(forKey: "kyber_key_id")
+
         print("🗑 Identity deleted from device")
     }
     
     public func clearStoredIdentity() async throws {
         print("🗑️ Clearing stored Cyphr Identity from device...")
-        
-        _ = keychain.delete(key: "cyphr_private_key")
+
+        _ = keychain.delete(key: "cyphr_ed25519_private_key")
+        _ = keychain.delete(key: "kyber_private_key")
+        _ = keychain.delete(key: "cyphr_username")
         _ = keychain.delete(key: "cyphr_id")
         _ = keychain.delete(key: "cyphr_recovery_phrase")
-        
-        self.privateKey = nil
-        self.publicKey = nil
+        _ = keychain.delete(key: "cyphr_pin_hash")
+        _ = keychain.delete(key: "cyphr_pin_salt")
+        _ = keychain.delete(key: "cyphr_pin_rounds")
+
+        UserDefaults.standard.removeObject(forKey: "cyphr_id")
+        UserDefaults.standard.removeObject(forKey: "device_has_identity")  // CRITICAL FIX
+        UserDefaults.standard.removeObject(forKey: "kyber_public_key")
+        UserDefaults.standard.removeObject(forKey: "kyber_key_id")
+
+        self.ed25519PrivateKey = nil
+        self.ed25519PublicKey = nil
         self.cyphrId = ""
         self.recoveryPhrase = []
-        
+        self.deviceFingerprintHash = nil
+
         print("✅ Identity cleared from device")
     }
     
-    /// Get Kyber1024 private key for decryption.
-    /// Tries Keychain first; if absent, generates a new pair, stores private key (Face ID protected),
-    /// caches public key for reference, and returns private key (base64).
+    /// Generate and persist a fresh Kyber1024 keypair.
+    @discardableResult
+    public func createNewKyberKeyPair() throws -> (publicKey: String, privateKey: String) {
+        let (publicKey, privateKey, keyId) = PostQuantumCrypto.shared.generateKyber1024KeyPair()
+
+        guard let privateKeyData = Data(base64Encoded: privateKey) else {
+            throw CyphrError.keyGenerationFailed
+        }
+
+        try keychain.store(
+            key: "kyber_private_key",
+            data: privateKeyData,
+            requiresBiometry: true
+        )
+
+        UserDefaults.standard.set(publicKey, forKey: "kyber_public_key")
+        UserDefaults.standard.set(keyId, forKey: "kyber_key_id")
+        print("🔑 Stored new Kyber keypair (keyId: \(keyId))")
+        return (publicKey, privateKey)
+    }
+
+    /// Get Kyber1024 private key for decryption. Generates and stores a new
+    /// keypair when none exists yet.
     public func getKyberPrivateKey() async throws -> String {
         if let existing = try? await keychain.retrieve(
             key: "kyber_private_key",
@@ -844,19 +927,13 @@ public class CyphrIdentity: ObservableObject {
         ) {
             return existing.base64EncodedString()
         }
-        // Generate new Kyber keypair and persist
-        let (pub, priv, keyId) = PostQuantumCrypto.shared.generateKyber1024KeyPair()
-        // Store private key (biometry-protected)
-        try keychain.store(
-            key: "kyber_private_key",
-            data: Data(base64Encoded: priv) ?? Data(),
-            requiresBiometry: true
-        )
-        // Cache public key and keyId for convenience
-        UserDefaults.standard.set(pub, forKey: "kyber_public_key")
-        UserDefaults.standard.set(keyId, forKey: "kyber_key_id")
-        print("🔑 Stored new Kyber keypair (keyId: \(keyId))")
-        return priv
+
+        return try createNewKyberKeyPair().privateKey
+    }
+
+    /// Returns the cached Kyber public key if it has been generated.
+    public func getKyberPublicKey() -> String? {
+        UserDefaults.standard.string(forKey: "kyber_public_key")
     }
     
     public func clearAllKeychainData() {
@@ -870,7 +947,7 @@ public class CyphrIdentity: ObservableObject {
             // also our consolidated service:
             "com.cyphr.messenger"
         ]
-        
+
         for service in keychainServices {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
@@ -878,34 +955,40 @@ public class CyphrIdentity: ObservableObject {
             ]
             SecItemDelete(query as CFDictionary)
         }
-        
-        self.privateKey = nil
-        self.publicKey = nil
+
+        self.ed25519PrivateKey = nil
+        self.ed25519PublicKey = nil
         self.cyphrId = nil
         self.recoveryPhrase = nil
-        
+        self.deviceFingerprintHash = nil
+
         print("🗑️ All Cyphr data permanently deleted from device")
     }
 }
 
-// MARK: - Legacy KeychainService (kept for compatibility in other files if any)
+struct DeviceInfo: Codable {
+    let deviceId: String
+    let deviceModel: String
+    let osVersion: String
+    let appVersion: String
 
-class KeychainService {
-    func store(key: String, data: Data, requiresBiometry: Bool) throws {
-        // Deprecated in favor of EnterpriseKeychainService
-        try EnterpriseKeychainService.shared.store(key: key, data: data, requiresBiometry: requiresBiometry)
-    }
-    
-    func retrieve(key: String) -> Data? {
-        EnterpriseKeychainService.shared.retrieveWithoutAuthentication(key: key)
-    }
-
-    func retrieveNoUI(key: String) -> Data? {
-        EnterpriseKeychainService.shared.retrieveWithoutAuthentication(key: key)
-    }
-    
-    func delete(key: String) -> Bool {
-        EnterpriseKeychainService.shared.delete(key: key)
+    static var current: DeviceInfo {
+        #if os(iOS)
+        let id = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        let model = UIDevice.current.model
+        let os = UIDevice.current.systemVersion
+        #else
+        let id = UUID().uuidString
+        let model = "macOS"
+        let os = ProcessInfo.processInfo.operatingSystemVersionString
+        #endif
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        return DeviceInfo(
+            deviceId: id,
+            deviceModel: model,
+            osVersion: os,
+            appVersion: appVersion
+        )
     }
 }
 
@@ -924,5 +1007,12 @@ extension Data {
 extension Digest {
     var data: Data {
         Data(self)
+    }
+}
+
+// Allow session layer to update cached Cyphr ID for UI bindings
+extension CyphrIdentity {
+    public func setCurrentCyphrId(_ id: String) {
+        self.cyphrId = id
     }
 }

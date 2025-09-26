@@ -19,6 +19,8 @@ struct ProfileView: View {
     @State private var walletBalance: WalletBalance? = nil
     @State private var isLoading = false
     @State private var loadingMessage = ""
+    @State private var showDeleteResultAlert = false
+    @State private var deleteResultMessage = ""
     
     var body: some View {
         NavigationView {
@@ -123,6 +125,14 @@ struct ProfileView: View {
                 } else {
                     Text("This will:\n• Delete all messages\n• Remove your identity\n• Clear all keys\n• Erase wallet\n\nYour @\(UserDefaults.standard.string(forKey: "cyphr_id") ?? "") will be available for others to claim.\n\nAre you absolutely sure?")
                 }
+            }
+            .alert("Account Removal", isPresented: $showDeleteResultAlert) {
+                Button("OK", role: .cancel) {
+                    // Close profile after informing the user
+                    dismiss()
+                }
+            } message: {
+                Text(deleteResultMessage)
             }
         }
         .onAppear {
@@ -260,7 +270,7 @@ struct ProfileView: View {
                 .cornerRadius(12)
                 
                 // Public Key (truncated)
-                if let publicKey = cyphrIdentity.publicKey {
+                if let publicKey = cyphrIdentity.ed25519PublicKey {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Public Key")
@@ -582,11 +592,16 @@ struct ProfileView: View {
     }
     
     private func logout() {
-        // Clear auth state
-        UserDefaults.standard.removeObject(forKey: "auth_token")
-        UserDefaults.standard.removeObject(forKey: "cyphr_id")
-        
-        // Navigate to welcome
+        // Use centralized AuthService logout to keep global state consistent
+        AuthenticationService.shared.logout()
+
+        // Notify app to transition out of authenticated UI
+        NotificationCenter.default.post(
+            name: Notification.Name("UserLoggedOut"),
+            object: nil
+        )
+
+        // Close profile sheet
         dismiss()
     }
     
@@ -620,31 +635,40 @@ struct ProfileView: View {
                 print("⚠️ Could not check wallet balance: \(error)")
             }
             
-            // Step 3: DELETE identity completely from backend
-            // GDPR compliant: full data erasure
-            let deleted = try await NetworkService.shared.deleteCyphrIdentity(cyphrId: cyphrId)
-            
-            if deleted {
-                print("✅ Identity DELETED from backend database")
-                
-                // Step 4: Clear all local data
-                clearLocalData()
-                
-                // Step 5: Post logout notification
-                NotificationCenter.default.post(
-                    name: Notification.Name("UserLoggedOut"),
-                    object: nil
-                )
-                
-                // Navigate to welcome screen
-                dismiss()
-            } else {
-                print("❌ Failed to invalidate identity on backend")
-                // Show error to user
+            // Step 3: Attempt server-side delete (best-effort)
+            // If server deletion fails or endpoint missing, proceed with local wipe and inform user.
+            let serverDeleted: Bool
+            do {
+                serverDeleted = try await NetworkService.shared.deleteCyphrIdentity(cyphrId: cyphrId)
+            } catch {
+                print("❌ Server delete threw error: \(error)")
+                serverDeleted = false
             }
+
+            // Step 4: Clear all local data regardless of server outcome
+            clearLocalData()
+
+            // Step 5: Notify app; navigation after alert confirmation
+            NotificationCenter.default.post(
+                name: Notification.Name("UserLoggedOut"),
+                object: nil
+            )
+
+            // Step 6: Inform user about result
+            deleteResultMessage = serverDeleted
+                ? "Your account was deleted on the server and all local data was cleared."
+                : "Server deletion could not be completed right now. All local data was cleared and you are logged out. You may still appear on the server temporarily. Try again later."
+            showDeleteResultAlert = true
         } catch {
             print("❌ Error resetting identity: \(error)")
-            // Show error modal
+            // Even on unexpected errors, ensure local wipe to protect user data
+            clearLocalData()
+            NotificationCenter.default.post(
+                name: Notification.Name("UserLoggedOut"),
+                object: nil
+            )
+            deleteResultMessage = "An error occurred while contacting the server. All local data was cleared and you are logged out."
+            showDeleteResultAlert = true
         }
     }
     
@@ -653,7 +677,7 @@ struct ProfileView: View {
         CyphrIdentity.shared.clearAllKeychainData()
         
         // Clear UserDefaults
-        UserDefaults.standard.removeObject(forKey: "auth_token")
+        AuthTokenStore.clear()
         UserDefaults.standard.removeObject(forKey: "cyphr_id")
         UserDefaults.standard.removeObject(forKey: "display_name")
         UserDefaults.standard.removeObject(forKey: "bio")

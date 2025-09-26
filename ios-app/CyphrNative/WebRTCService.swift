@@ -2,9 +2,18 @@ import Foundation
 import WebRTC
 import Combine
 
+protocol WebRTCSignalingDelegate: AnyObject {
+    func webRTCService(
+        _ service: WebRTCService,
+        didGenerateLocalCandidate candidate: RTCIceCandidate,
+        forCall callId: String,
+        peerId: String
+    )
+}
+
 /// WebRTC Service for P2P media transfer
 /// Implements hybrid approach: P2P when online, S3 fallback when offline
-class WebRTCService: ObservableObject {
+class WebRTCService: NSObject, ObservableObject {
     static let shared = WebRTCService()
     
     // MARK: - Properties
@@ -12,6 +21,10 @@ class WebRTCService: ObservableObject {
     private var dataChannels: [String: RTCDataChannel] = [:]
     private let networkService = NetworkService.shared
     private let postQuantumCrypto = PostQuantumCrypto.shared
+    weak var signalingDelegate: WebRTCSignalingDelegate?
+    
+    private var callContexts: [String: CallContext] = [:]
+    private var peerConnectionLookup: [ObjectIdentifier: String] = [:]
     
     @Published var connectionStatus: [String: ConnectionStatus] = [:]
     
@@ -43,6 +56,10 @@ class WebRTCService: ObservableObject {
             decoderFactory: videoDecoderFactory
         )
     }()
+    
+    override init() {
+        super.init()
+    }
     
     // MARK: - Public Methods
     
@@ -85,7 +102,8 @@ class WebRTCService: ObservableObject {
     // MARK: - P2P Transfer
     
     private func getRecipientPublicKey(_ userId: String) async throws -> String {
-        return try await networkService.getPublicKey(for: userId)
+        let response = try await networkService.getPublicKey(for: userId)
+        return response.kyberPublicKey ?? response.publicKey
     }
     
     private func sendViaP2P(
@@ -155,8 +173,9 @@ class WebRTCService: ObservableObject {
     ) async throws -> SendResult {
         
         // 1. Get recipient's public key and encrypt
-        let recipientPublicKey = try await networkService.getPublicKey(for: recipient)
-        
+        let pkResponse = try await networkService.getPublicKey(for: recipient)
+        let recipientPublicKey = pkResponse.kyberPublicKey ?? pkResponse.publicKey
+
         let encryptedPackage = try await postQuantumCrypto.encryptForTransmission(
             data,
             for: recipientPublicKey
@@ -165,9 +184,21 @@ class WebRTCService: ObservableObject {
         let encryptedData = try JSONEncoder().encode(encryptedPackage)
         
         // 2. Upload to S3 with TTL
+        let s3MediaType: S3MediaType
+        switch type {
+        case .image:
+            s3MediaType = .image
+        case .video:
+            s3MediaType = .video
+        case .audio:
+            s3MediaType = .voice
+        case .document:
+            s3MediaType = .document
+        }
+
         let s3Result = try await S3Service.shared.uploadMedia(
             encryptedData,
-            type: type,
+            type: s3MediaType,
             for: recipient
         )
         
@@ -184,6 +215,153 @@ class WebRTCService: ObservableObject {
             s3Url: s3Result.cdnUrl,
             timestamp: Date()
         )
+    }
+
+    // MARK: - Call Signaling (SDP / ICE)
+
+    func createLocalOffer(callId: String, peerId: String, isVideo: Bool) async throws -> String {
+        let context = try ensureCallContext(callId: callId, peerId: peerId, isVideo: isVideo)
+        let constraints = RTCMediaConstraints(
+            mandatoryConstraints: [
+                "OfferToReceiveAudio": "true",
+                "OfferToReceiveVideo": isVideo ? "true" : "false"
+            ],
+            optionalConstraints: nil
+        )
+
+        let offer = try await createOffer(on: context.peerConnection, constraints: constraints)
+        try await setLocalDescription(on: context.peerConnection, description: offer)
+        return offer.sdp
+    }
+
+    func processRemoteOffer(
+        callId: String,
+        peerId: String,
+        sdp: String,
+        isVideo: Bool
+    ) async throws -> String {
+        let context = try ensureCallContext(callId: callId, peerId: peerId, isVideo: isVideo)
+        let offerDescription = RTCSessionDescription(type: .offer, sdp: sdp)
+        try await setRemoteDescription(on: context.peerConnection, description: offerDescription)
+
+        let constraints = RTCMediaConstraints(
+            mandatoryConstraints: [
+                "OfferToReceiveAudio": "true",
+                "OfferToReceiveVideo": isVideo ? "true" : "false"
+            ],
+            optionalConstraints: nil
+        )
+
+        let answer = try await createAnswer(on: context.peerConnection, constraints: constraints)
+        try await setLocalDescription(on: context.peerConnection, description: answer)
+        return answer.sdp
+    }
+
+    func applyRemoteAnswer(callId: String, sdp: String) async throws {
+        guard let context = callContexts[callId] else {
+            throw WebRTCError.contextNotFound
+        }
+
+        let answerDescription = RTCSessionDescription(type: .answer, sdp: sdp)
+        try await setRemoteDescription(on: context.peerConnection, description: answerDescription)
+    }
+
+    func addRemoteCandidate(callId: String, candidate: RTCIceCandidate) async throws {
+        guard let context = callContexts[callId] else {
+            throw WebRTCError.contextNotFound
+        }
+
+        try await context.peerConnection.add(candidate)
+    }
+
+    func closeCall(callId: String) {
+        guard let context = callContexts.removeValue(forKey: callId) else { return }
+        context.peerConnection.close()
+        peerConnectionLookup.removeValue(forKey: ObjectIdentifier(context.peerConnection))
+    }
+
+    // MARK: - Call Context Management
+
+    private func ensureCallContext(callId: String, peerId: String, isVideo: Bool) throws -> CallContext {
+        if let existing = callContexts[callId] {
+            return existing
+        }
+
+        guard let connection = WebRTCService.factory.peerConnection(
+            with: rtcConfig,
+            constraints: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil),
+            delegate: self
+        ) else {
+            throw WebRTCError.connectionFailed
+        }
+
+        let audioSource = WebRTCService.factory.audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
+        let audioTrack = WebRTCService.factory.audioTrack(with: audioSource, trackId: "audio-\(callId)")
+        connection.add(audioTrack, streamIds: ["call-\(callId)"])
+
+        let context = CallContext(
+            callId: callId,
+            peerId: peerId,
+            isVideo: isVideo,
+            peerConnection: connection,
+            audioTrack: audioTrack
+        )
+
+        callContexts[callId] = context
+        peerConnectionLookup[ObjectIdentifier(connection)] = callId
+        return context
+    }
+
+    private func createOffer(on connection: RTCPeerConnection, constraints: RTCMediaConstraints) async throws -> RTCSessionDescription {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RTCSessionDescription, Error>) in
+            connection.offer(for: constraints) { description, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let description = description {
+                    continuation.resume(returning: description)
+                } else {
+                    continuation.resume(throwing: WebRTCError.offerCreationFailed)
+                }
+            }
+        }
+    }
+
+    private func createAnswer(on connection: RTCPeerConnection, constraints: RTCMediaConstraints) async throws -> RTCSessionDescription {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RTCSessionDescription, Error>) in
+            connection.answer(for: constraints) { description, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let description = description {
+                    continuation.resume(returning: description)
+                } else {
+                    continuation.resume(throwing: WebRTCError.answerCreationFailed)
+                }
+            }
+        }
+    }
+
+    private func setLocalDescription(on connection: RTCPeerConnection, description: RTCSessionDescription) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            connection.setLocalDescription(description) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
+    }
+
+    private func setRemoteDescription(on connection: RTCPeerConnection, description: RTCSessionDescription) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            connection.setRemoteDescription(description) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
     }
     
     // MARK: - WebRTC Connection Management
@@ -347,6 +525,20 @@ struct SendResult {
     let timestamp: Date
 }
 
+private struct CallContext {
+    let callId: String
+    let peerId: String
+    let isVideo: Bool
+    let peerConnection: RTCPeerConnection
+    let audioTrack: RTCAudioTrack
+}
+
+struct IceCandidatePayload: Codable {
+    let candidate: String
+    let sdpMid: String?
+    let sdpMLineIndex: Int
+}
+
 enum WebRTCError: LocalizedError {
     case connectionFailed
     case channelCreationFailed
@@ -354,6 +546,9 @@ enum WebRTCError: LocalizedError {
     case channelTimeout
     case signalingFailed
     case recipientKeyNotFound
+    case contextNotFound
+    case offerCreationFailed
+    case answerCreationFailed
     
     var errorDescription: String? {
         switch self {
@@ -369,6 +564,53 @@ enum WebRTCError: LocalizedError {
             return "Data channel connection timeout"
         case .signalingFailed:
             return "WebRTC signaling failed"
+        case .contextNotFound:
+            return "Call context not found"
+        case .offerCreationFailed:
+            return "Failed to create SDP offer"
+        case .answerCreationFailed:
+            return "Failed to create SDP answer"
         }
     }
+}
+
+// MARK: - RTCPeerConnectionDelegate
+
+extension WebRTCService: RTCPeerConnectionDelegate {
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
+
+    func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCPeerConnectionState) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
+        let identifier = ObjectIdentifier(peerConnection)
+        guard
+            let callId = peerConnectionLookup[identifier],
+            let context = callContexts[callId]
+        else {
+            return
+        }
+
+        signalingDelegate?.webRTCService(
+            self,
+            didGenerateLocalCandidate: candidate,
+            forCall: callId,
+            peerId: context.peerId
+        )
+    }
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
 }

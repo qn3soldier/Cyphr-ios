@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 /// Image Picker for selecting photos from gallery
 struct ImagePicker: UIViewControllerRepresentable {
@@ -77,6 +78,66 @@ struct DocumentPicker: UIViewControllerRepresentable {
         
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
             parent.completion(nil)
+        }
+    }
+}
+
+/// Video picker using PHPicker to grab movie files
+struct VideoPicker: UIViewControllerRepresentable {
+    let completion: (URL?) -> Void
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .videos
+        config.selectionLimit = 1
+
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let parent: VideoPicker
+
+        init(_ parent: VideoPicker) {
+            self.parent = parent
+        }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+
+            guard let provider = results.first?.itemProvider,
+                  provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
+                parent.completion(nil)
+                return
+            }
+
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, error in
+                guard let url else {
+                    DispatchQueue.main.async { self.parent.completion(nil) }
+                    return
+                }
+
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("cyphr-video-\(UUID().uuidString).\(url.pathExtension.isEmpty ? "mp4" : url.pathExtension)")
+
+                do {
+                    if FileManager.default.fileExists(atPath: tempURL.path) {
+                        try FileManager.default.removeItem(at: tempURL)
+                    }
+                    try FileManager.default.copyItem(at: url, to: tempURL)
+                    DispatchQueue.main.async { self.parent.completion(tempURL) }
+                } catch {
+                    print("❌ Failed to copy video: \(error)")
+                    DispatchQueue.main.async { self.parent.completion(nil) }
+                }
+            }
         }
     }
 }

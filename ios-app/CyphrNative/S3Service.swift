@@ -46,11 +46,20 @@ struct S3PartUrl: Codable {
     let uploadUrl: String
 }
 
+// MARK: - S3 Media Type
+
+enum S3MediaType {
+    case image
+    case video
+    case document
+    case voice
+    case avatar
+}
+
 // MARK: - S3 Service
 
 class S3Service {
     static let shared = S3Service()
-    private let networkService = NetworkService.shared
     
     private init() {}
     
@@ -95,7 +104,7 @@ class S3Service {
     
     // MARK: - Media Upload (Photos/Videos)
     
-    func uploadMedia(_ mediaData: Data, type: MediaType, for userId: String) async throws -> S3UploadResult {
+    func uploadMedia(_ mediaData: Data, type: S3MediaType, for userId: String) async throws -> S3UploadResult {
         let maxSize = type == .image ? 10 * 1024 * 1024 : 100 * 1024 * 1024 // 10MB for images, 100MB for videos
         
         if mediaData.count > maxSize {
@@ -193,13 +202,28 @@ class S3Service {
         ]
         
         // Direct HTTP request for S3 operations  
-        let url = URL(string: "\(NetworkService.shared.baseURL)\(endpoint)")!
+        let baseURL = "https://app.cyphrmessenger.app"
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw S3Error.invalidURL
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
         
-        let (data, _) = try await URLSession.shared.data(for: request)
+        // Add auth token if available
+        if let token = AuthTokenStore.load() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw S3Error.uploadFailed
+        }
+        
         return try JSONDecoder().decode(S3PresignedUploadResponse.self, from: data)
     }
     
@@ -212,16 +236,30 @@ class S3Service {
         }
         
         // Direct HTTP request for S3 operations
-        let url = URL(string: "\(NetworkService.shared.baseURL)\(endpoint)")!
+        let baseURL = "https://app.cyphrmessenger.app"
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw S3Error.invalidURL
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
         
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(DownloadResponse.self, from: data)
+        // Add auth token if available
+        if let token = AuthTokenStore.load() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         
-        return response.downloadUrl
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw S3Error.downloadFailed
+        }
+        
+        let downloadResponse = try JSONDecoder().decode(DownloadResponse.self, from: data)
+        return downloadResponse.downloadUrl
     }
     
     private func uploadToS3(encryptedData: Data, presignedData: S3PresignedUploadResponse) async throws -> S3UploadResult {
@@ -323,13 +361,28 @@ class S3Service {
             "totalParts": String(totalParts)
         ]
         
-        let url = URL(string: "\(NetworkService.shared.baseURL)\(endpoint)")!
+        let baseURL = "https://app.cyphrmessenger.app"
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw S3Error.invalidURL
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
         
-        let (data, _) = try await URLSession.shared.data(for: request)
+        // Add auth token if available
+        if let token = AuthTokenStore.load() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw S3Error.uploadFailed
+        }
+        
         return try JSONDecoder().decode(S3MultipartUploadResponse.self, from: data)
     }
     
@@ -362,43 +415,65 @@ class S3Service {
             "parts": parts.map { ["PartNumber": $0.partNumber, "ETag": $0.etag] }
         ]
         
-        let url = URL(string: "\(NetworkService.shared.baseURL)\(endpoint)")!
+        let baseURL = "https://app.cyphrmessenger.app"
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw S3Error.invalidURL
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: params)
         
-        let (data, _) = try await URLSession.shared.data(for: request)
+        // Add auth token if available
+        if let token = AuthTokenStore.load() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw S3Error.uploadFailed
+        }
+        
         return try JSONDecoder().decode(S3UploadResult.self, from: data)
     }
     
     // MARK: - Encryption/Decryption
     
     private func encryptData(_ data: Data) async throws -> Data {
-        // Use ChaCha20 encryption with random key
+        // TODO: Integrate with PostQuantumCrypto for proper key management
+        // For now using temporary encryption for S3 storage
         let key = SymmetricKey(size: .bits256)
-        let nonce = try ChaChaPoly.Nonce()
+        let nonce = ChaChaPoly.Nonce()
         
-        let sealedBox = try ChaChaPoly.seal(data, using: key, nonce: nonce)
-        
-        // Return combined data (nonce + ciphertext + tag)
-        return sealedBox.combined
+        do {
+            let sealedBox = try ChaChaPoly.seal(data, using: key, nonce: nonce)
+            
+            // TODO: Store key securely in Keychain for later decryption
+            // This is just a placeholder implementation
+            return sealedBox.combined
+        } catch {
+            throw S3Error.encryptionFailed
+        }
     }
     
     private func decryptData(_ encryptedData: Data) async throws -> Data {
-        // Extract and decrypt using ChaCha20
-        let sealedBox = try ChaChaPoly.SealedBox(combined: encryptedData)
-        
-        // In production, get key from secure storage
-        // For now, using placeholder
+        // TODO: Retrieve key from secure storage
+        // This is a placeholder - in production, key should be retrieved from Keychain
         let key = SymmetricKey(size: .bits256)
         
-        return try ChaChaPoly.open(sealedBox, using: key)
+        do {
+            let sealedBox = try ChaChaPoly.SealedBox(combined: encryptedData)
+            return try ChaChaPoly.open(sealedBox, using: key)
+        } catch {
+            throw S3Error.decryptionFailed
+        }
     }
 }
 
-// MARK: - Media Type
-// MediaType is defined in WebRTCService.swift
+// MARK: - S3 Media Type Enum
 
 // MARK: - S3 Errors
 

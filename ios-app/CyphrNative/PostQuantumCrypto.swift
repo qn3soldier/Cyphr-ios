@@ -345,6 +345,65 @@ public struct HybridEncryptedMessage: Codable {
     let encryptedMessage: EncryptedMessage
 }
 
+extension HybridEncryptedMessage {
+    /// Convert the hybrid payload into a dictionary suitable for Socket.IO emission.
+    public func toDictionary() -> [String: String] {
+        return [
+            "kyberCiphertext": kyberCiphertext,
+            "ciphertext": encryptedMessage.ciphertext,
+            "nonce": encryptedMessage.nonce,
+            "tag": encryptedMessage.tag
+        ]
+    }
+
+    /// Decode a hybrid payload from a generic Socket.IO payload value.
+    public static func fromAny(_ value: Any) -> HybridEncryptedMessage? {
+        if let dictionary = value as? [String: Any] {
+            return fromDictionary(dictionary)
+        }
+
+        if let stringValue = value as? String,
+           let data = stringValue.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return fromDictionary(json)
+        }
+
+        return nil
+    }
+
+    /// Decode a hybrid payload from a dictionary.
+    public static func fromDictionary(_ dictionary: [String: Any]) -> HybridEncryptedMessage? {
+        let kyberCiphertext = dictionary["kyberCiphertext"] as? String
+
+        let messageDictionary: [String: Any]
+        if let nested = dictionary["encryptedMessage"] as? [String: Any] {
+            messageDictionary = nested
+        } else {
+            messageDictionary = dictionary
+        }
+
+        guard
+            let kyber = kyberCiphertext,
+            let ciphertext = messageDictionary["ciphertext"] as? String,
+            let nonce = messageDictionary["nonce"] as? String,
+            let tag = messageDictionary["tag"] as? String
+        else {
+            return nil
+        }
+
+        let encrypted = EncryptedMessage(
+            ciphertext: ciphertext,
+            nonce: nonce,
+            tag: tag
+        )
+
+        return HybridEncryptedMessage(
+            kyberCiphertext: kyber,
+            encryptedMessage: encrypted
+        )
+    }
+}
+
 // Из finalKyber1024.js
 public struct EncryptedPackage: Codable {
     let encryptedMessage: String

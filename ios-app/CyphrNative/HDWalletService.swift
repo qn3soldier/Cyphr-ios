@@ -20,18 +20,17 @@ class HDWalletService: ObservableObject {
     
     // Моковые данные
     private let mockStellarAddress = "GMOCKADDRESS1234567890MOCKADDRESS1234567890MOCK"
-    private let mockSeedPhrase24 = [
+    private let requiredWordCount = 12
+    private let fallbackSeedPhrase12 = [
         "quantum","secure","wallet","message","stellar","payment",
-        "crypto","private","seed","phrase","recover","backup",
-        "asset","transfer","network","horizon","ledger","account",
-        "balance","transaction","signature","verify","protect","store"
+        "crypto","private","seed","phrase","recover","backup"
     ]
     
     // MARK: - Initialization
     private init() {
         print("💰 HD Wallet Service (MOCK) initialized")
         // Инициализируем фиктивные значения, чтобы UI мог их отобразить
-        self.seedPhrase = mockSeedPhrase24
+        self.seedPhrase = loadDefaultSeedPhrase()
         self.stellarKeyPair = StellarKeyPair(publicKey: mockStellarAddress, privateKey: Data())
         self.stellarAddress = mockStellarAddress
         self.isWalletSetup = true
@@ -44,16 +43,17 @@ class HDWalletService: ObservableObject {
         // Мокаем «создание» кошелька
         try await Task.sleep(nanoseconds: 300_000_000) // небольшая задержка для UX
         
-        self.seedPhrase = mockSeedPhrase24
+        let newSeedPhrase = loadDefaultSeedPhrase()
+        self.seedPhrase = newSeedPhrase
         self.masterSeed = Data()
         self.stellarKeyPair = StellarKeyPair(publicKey: mockStellarAddress, privateKey: Data())
         self.stellarAddress = mockStellarAddress
         self.isWalletSetup = true
         
-        print("✅ (MOCK) HD Wallet generated: \(mockStellarAddress.prefix(8))...")
+        print("✅ (MOCK) HD Wallet generated with 12-word phrase: \(mockStellarAddress.prefix(8))...")
         return WalletInfo(
             publicKey: mockStellarAddress,
-            seedPhrase: mockSeedPhrase24,
+            seedPhrase: newSeedPhrase,
             createdAt: Date()
         )
     }
@@ -61,7 +61,7 @@ class HDWalletService: ObservableObject {
     /// Restore wallet from seed phrase (Mock)
     func restoreWallet(seedPhrase: [String]) async throws -> WalletInfo {
         // Валидацию делаем минимальную
-        guard seedPhrase.count == 24 || seedPhrase.count == 12 else {
+        guard seedPhrase.count == requiredWordCount else {
             throw WalletError.invalidSeedPhrase
         }
         try await Task.sleep(nanoseconds: 300_000_000)
@@ -128,11 +128,21 @@ class HDWalletService: ObservableObject {
         // Возвращаем фиктивные данные
         print("🔓 (MOCK) retrieveWalletData - returning mock")
         return WalletData(
-            mnemonic: mockSeedPhrase24.joined(separator: " "),
+            mnemonic: (seedPhrase ?? loadDefaultSeedPhrase()).joined(separator: " "),
             stellarKeys: StellarKeys(publicKey: mockStellarAddress, secretKey: "MOCK_PRIVATE_KEY"),
             ethereumKeys: nil,
             bitcoinKeys: nil
         )
+    }
+
+    private func loadDefaultSeedPhrase() -> [String] {
+        let bundledWords = BIP39WordList.englishWords
+        guard bundledWords.count == 2048 else {
+            print("⚠️ (MOCK) Falling back to hard-coded 12-word phrase (bundle missing)")
+            return fallbackSeedPhrase12
+        }
+
+        return Array(bundledWords.shuffled().prefix(requiredWordCount))
     }
 }
 

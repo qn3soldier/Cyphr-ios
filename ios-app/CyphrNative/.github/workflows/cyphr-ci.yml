@@ -1,0 +1,143 @@
+name: Cyphr CI (iOS + ZK guard)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IOS_PROJECT: ios-app/CyphrNative/CyphrNative.xcodeproj
+  IOS_SCHEME: CyphrNative
+  IOS_DESTINATION: 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5'
+  IOS_WORKDIR: ios-app/CyphrNative
+  SERVER_DIR: server
+
+jobs:
+  # --- ZK guard для сервера (быстрый и дешёвый) ---
+  zk-guard-server:
+    name: "ZK Guard (server: forbid decrypt)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate server directory exists (optional)
+        run: |
+          if [ ! -d "$SERVER_DIR" ]; then
+            echo "::warning::No $SERVER_DIR directory detected; skipping server ZK guard."
+            exit 0
+          fi
+
+      - name: Forbid decrypt / PQC libs on server
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "🔎 Running forbid-server-decrypt…"
+          bash .github/scripts/forbid_server_decrypt.sh "$SERVER_DIR"
+
+  # --- Скан секретов (локально в PR) ---
+  secrets-scan:
+    name: "Secrets scan (gitleaks)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --redact
+    # секреты из истории/доков должны быть ротаированы и вынесены в env/Secrets Manager
+
+  # --- iOS build + unit tests + быстрые гейты по критичным требованиям ---
+  ios-build-test:
+    name: "iOS build & tests + critical gates"
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Resolve SPM
+        working-directory: ${{ env.IOS_WORKDIR }}
+        run: |
+          xcodebuild -resolvePackageDependencies -project "${IOS_PROJECT}"
+
+      - name: Build & Test (Simulator)
+        working-directory: ${{ env.IOS_WORKDIR }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "${IOS_PROJECT}" \
+            -scheme "${IOS_SCHEME}" \
+            -destination "${IOS_DESTINATION}" \
+            -configuration Debug \
+            -enableCodeCoverage YES \
+            clean test
+
+      # --- Быстрые гейты на известные блокеры ---
+      - name: "Gate: BIP39 wordlist must be in Xcode Copy Bundle Resources"
+        run: |
+          set -euo pipefail
+          PROJ="${{ env.IOS_PROJECT }}"
+          if ! grep -R "bip39-english.txt" "$PROJ/project.pbxproj" >/dev/null; then
+            echo "::error::bip39-english.txt is not referenced in Xcode project (Copy Bundle Resources)."
+            exit 1
+          fi
+        # см. реальные баги по BIP39 в статусе проекта/roadmap
+
+      - name: "Gate: Info.plist must declare NSFaceIDUsageDescription"
+        run: |
+          set -euo pipefail
+          INFOPLIST=$(git ls-files | grep -E "/Info\.plist$" | head -n1 || true)
+          if [ -z "$INFOPLIST" ]; then
+            echo "::warning::No Info.plist found via quick scan — adjust path or add explicit check."
+          else
+            if ! /usr/libexec/PlistBuddy -c "Print :NSFaceIDUsageDescription" "$INFOPLIST" >/dev/null 2>&1; then
+              echo "::error::NSFaceIDUsageDescription key missing in $INFOPLIST"
+              exit 1
+            fi
+          fi
+
+      - name: "Gate: iOS deployment target >= 15.0 (no phantom SDKs)"
+        run: |
+          set -euo pipefail
+          PROJ="${{ env.IOS_PROJECT }}"
+          if ! grep -E "IPHONEOS_DEPLOYMENT_TARGET = (1[5-9]|[2-9][0-9])" "$PROJ/project.pbxproj" >/dev/null; then
+            echo "::error::Minimum iOS target must be >= 15.0"
+            exit 1
+          fi
+
+      - name: "Gate: LoadingOverlay usage present in app code (advisory)"
+        continue-on-error: true
+        run: |
+          if ! grep -R "\.loadingOverlay\(" "${{ env.IOS_WORKDIR }}" -n --include="*.swift" >/dev/null; then
+            echo "::warning::No LoadingOverlay usage detected — ensure async flows show progress."
+          fi
+
+  # --- Backend sanity (optional: lint/tests) ---
+  backend-node:
+    name: "Backend sanity (install + optional tests)"
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles(format('{0}/package.json', env.SERVER_DIR)) != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        working-directory: ${{ env.SERVER_DIR }}
+        run: npm ci
+      - name: Lint (optional)
+        if: hashFiles(format('{0}/.eslintrc*', env.SERVER_DIR)) != ''
+        working-directory: ${{ env.SERVER_DIR }}
+        run: npm run lint --if-present
+      - name: Tests (optional)
+        working-directory: ${{ env.SERVER_DIR }}
+        run: npm test --if-present

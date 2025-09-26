@@ -15,35 +15,19 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Cyphr" textAlignment="center" lineBreakMode="middleTruncation" baselineAdjustment="alignBaselines" minimumScaleFactor="0.5" translatesAutoresizingMaskIntoConstraints="NO" id="GJd-Yh-RWb">
-                                <rect key="frame" x="146.5" y="396" width="100" height="60"/>
-                                <fontDescription key="fontDescription" type="boldSystem" pointSize="50"/>
-                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                            <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Quantum-Safe Messenger" textAlignment="center" lineBreakMode="middleTruncation" baselineAdjustment="alignBaselines" minimumFontSize="9" translatesAutoresizingMaskIntoConstraints="NO" id="MNu-8Q-TzK">
-                                <rect key="frame" x="99" y="466" width="195" height="18"/>
-                                <fontDescription key="fontDescription" type="system" weight="light" pointSize="15"/>
-                                <color key="textColor" white="0.8" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="iNB-Lf-kZH">
-                                <rect key="frame" x="146.5" y="276" width="100" height="100"/>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="CyphrLogo" translatesAutoresizingMaskIntoConstraints="NO" id="iNB-Lf-kZH">
+                                <rect key="frame" x="121.5" y="326" width="150" height="150"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="100" id="2hK-nR-zQF"/>
-                                    <constraint firstAttribute="height" constant="100" id="xhT-aN-vZ1"/>
+                                    <constraint firstAttribute="width" constant="150" id="2hK-nR-zQF"/>
+                                    <constraint firstAttribute="height" constant="150" id="xhT-aN-vZ1"/>
                                 </constraints>
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
                         <color key="backgroundColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="7KI-UE-ejC"/>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="F9u-5W-tDr"/>
-                            <constraint firstItem="MNu-8Q-TzK" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="GRd-6E-hg5"/>
-                            <constraint firstItem="MNu-8Q-TzK" firstAttribute="top" secondItem="GJd-Yh-RWb" secondAttribute="bottom" constant="10" id="Iqb-zL-Rgh"/>
                             <constraint firstItem="iNB-Lf-kZH" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="bRV-sH-WdE"/>
-                            <constraint firstItem="GJd-Yh-RWb" firstAttribute="top" secondItem="iNB-Lf-kZH" secondAttribute="bottom" constant="20" id="pWu-bE-tEE"/>
+                            <constraint firstItem="iNB-Lf-kZH" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="pWu-bE-tEE"/>
                         </constraints>
                     </view>
                 </viewController>
@@ -52,4 +36,7 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <image name="CyphrLogo" width="512" height="512"/>
+    </resources>
 </document>

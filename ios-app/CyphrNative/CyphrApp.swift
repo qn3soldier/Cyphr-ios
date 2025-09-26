@@ -13,7 +13,17 @@ struct CyphrApp: App {
     init() {
         setupAppearance()
         print("🚀 Cyphr Messenger iOS - Starting...")
-        
+        print("🎯 PRINCIPLE: ONE DEVICE = ONE CYPHR ID")
+
+        // CRITICAL: Clean up any stale data on launch
+        // TODO: Add CleanupUtility.swift to Xcode project
+        // if CleanupUtility.hasStaleData() {
+        //     print("⚠️ Detected stale data - cleaning up...")
+        //     CleanupUtility.cleanStaleData()
+        // }
+
+        // Removed stale inline cleanup to avoid unintended identity deletion.
+
         // Test network connectivity after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             Task {
@@ -55,13 +65,38 @@ struct CyphrApp: App {
             .foregroundColor: UIColor.white
         ]
         UINavigationBar.appearance().barTintColor = UIColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1)
-        UITabBar.appearance().barTintColor = UIColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1)
+
+        // Modern glassy TabBar appearance
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithTransparentBackground()
+        tabAppearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+        tabAppearance.backgroundColor = .clear
+        // Selected state
+        tabAppearance.stackedLayoutAppearance.selected.iconColor = UIColor.systemPurple
+        tabAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemPurple]
+        tabAppearance.inlineLayoutAppearance.selected.iconColor = UIColor.systemPurple
+        tabAppearance.inlineLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemPurple]
+        tabAppearance.compactInlineLayoutAppearance.selected.iconColor = UIColor.systemPurple
+        tabAppearance.compactInlineLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemPurple]
+        // Unselected state
+        let unselectedColor = UIColor(white: 1.0, alpha: 0.6)
+        tabAppearance.stackedLayoutAppearance.normal.iconColor = unselectedColor
+        tabAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: unselectedColor]
+        tabAppearance.inlineLayoutAppearance.normal.iconColor = unselectedColor
+        tabAppearance.inlineLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: unselectedColor]
+        tabAppearance.compactInlineLayoutAppearance.normal.iconColor = unselectedColor
+        tabAppearance.compactInlineLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: unselectedColor]
+
+        let tabBar = UITabBar.appearance()
+        tabBar.standardAppearance = tabAppearance
+        tabBar.scrollEdgeAppearance = tabAppearance
+        tabBar.isTranslucent = true
+        tabBar.tintColor = UIColor.systemPurple
         #endif
     }
 }
 
 // MARK: - Content View
-
 struct ContentView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     
@@ -75,11 +110,12 @@ struct ContentView: View {
                 WelcomeView()
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
+        .animation(.easeInOut(duration: 0.3), value: authManager.isCheckingAuth)
     }
 }
 
 // MARK: - Splash View
-
 struct SplashView: View {
     @State private var scale = 0.9
     @State private var opacity = 0.7
@@ -98,16 +134,53 @@ struct SplashView: View {
             .ignoresSafeArea()
             
             VStack(spacing: 25) {
-                // Real Cyphr Logo with neon glow effect
-                Image("CyphrLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                // Cyphr Logo with neon glow effect
+                ZStack {
+                    Group {
+                        #if os(iOS)
+                        if UIImage(named: "CyphrLogo") != nil {
+                            Image("CyphrLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 120, height: 120)
+                        } else {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.purple, .blue, .cyan],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .overlay(
+                                    Text("C")
+                                        .font(.system(size: 72, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                        #else
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.purple, .blue, .cyan],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .overlay(
+                                Text("C")
+                                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                            )
+                        #endif
+                    }
                     .frame(width: 120, height: 120)
                     .shadow(color: .cyan, radius: glowAmount * 30)
                     .shadow(color: .purple.opacity(0.8), radius: glowAmount * 40)
                     .shadow(color: .blue.opacity(0.6), radius: glowAmount * 50)
                     .scaleEffect(scale)
                     .opacity(opacity)
+                }
                 
                 Text("Cyphr Messenger")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
@@ -141,8 +214,8 @@ struct SplashView: View {
 }
 
 // MARK: - Main Tab View
-
 struct MainTabView: View {
+    @EnvironmentObject var authManager: AuthenticationManager
     @State private var selectedTab = 0
     
     var body: some View {
@@ -172,16 +245,22 @@ struct MainTabView: View {
                 .tag(3)
         }
         .accentColor(.purple)
+        .onAppear {
+            print("🎉 User entered main app: @\(authManager.currentUserId ?? "unknown")")
+        }
     }
 }
 
 // MARK: - Authentication Manager
-
 class AuthenticationManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var isCheckingAuth = true
     @Published var currentUser: User?
     @Published var currentUserId: String?
+    
+    // 🎯 КРИТИЧЕСКАЯ ФИЧА: ОДНО УСТРОЙСТВО = ОДИН CYPHR ID
+    @Published var hasDeviceIdentity = false
+    @Published var deviceCyphrId: String?
     
     private let cyphrIdentity = CyphrIdentity.shared
     private let networkService = NetworkService.shared
@@ -189,15 +268,35 @@ class AuthenticationManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
+        print("🔐 AuthenticationManager initialized")
+        setupNotificationListeners()
+    }
+    
+    private func setupNotificationListeners() {
+        // Listen for successful registration (auto-login after sign up)
+        NotificationCenter.default.publisher(for: Notification.Name("UserRegistered"))
+            .sink { [weak self] notification in
+                print("📢 Received UserRegistered notification")
+                Task { @MainActor in
+                    // После регистрации - мгновенный автологин
+                    if let cyphrId = notification.userInfo?["cyphrId"] as? String,
+                       let token = notification.userInfo?["token"] as? String {
+                        print("🚀 Auto-login after registration: @\(cyphrId)")
+                        self?.completeAuthentication(cyphrId: cyphrId, token: token)
+                    }
+                }
+            }
+            .store(in: &cancellables)
+        
         // Listen for login notifications
         NotificationCenter.default.publisher(for: Notification.Name("UserLoggedIn"))
             .sink { [weak self] notification in
+                print("📢 Received UserLoggedIn notification")
                 Task { @MainActor in
-                    self?.isAuthenticated = true
-                    if let cyphrId = notification.userInfo?["cyphrId"] as? String {
-                        self?.currentUserId = cyphrId
-                    } else if let stored = UserDefaults.standard.string(forKey: "cyphr_id") {
-                        self?.currentUserId = stored
+                    if let cyphrId = notification.userInfo?["cyphrId"] as? String,
+                       let token = notification.userInfo?["token"] as? String {
+                        print("👤 Manual login: @\(cyphrId)")
+                        self?.completeAuthentication(cyphrId: cyphrId, token: token)
                     }
                 }
             }
@@ -206,56 +305,199 @@ class AuthenticationManager: ObservableObject {
         // Listen for logout notifications
         NotificationCenter.default.publisher(for: Notification.Name("UserLoggedOut"))
             .sink { [weak self] _ in
+                print("📢 Received UserLoggedOut notification")
                 Task { @MainActor in
-                    self?.isAuthenticated = false
-                    self?.currentUser = nil
-                    self?.currentUserId = nil
+                    self?.logout()
                 }
             }
             .store(in: &cancellables)
     }
     
     @MainActor
-    func checkAuthentication() async {
-        isCheckingAuth = true
+    private func completeAuthentication(cyphrId: String, token: String) {
+        self.isAuthenticated = true
+        self.currentUserId = cyphrId
+        self.hasDeviceIdentity = true
+        self.deviceCyphrId = cyphrId
+        // Keep global identity in sync for UI bindings (e.g., ProfileView)
+        CyphrIdentity.shared.setCurrentCyphrId(cyphrId)
         
-        // 1) Если уже есть валидный токен, считаем аутентифицированным
-        if let token = UserDefaults.standard.string(forKey: "auth_token"), !token.isEmpty,
-           let storedId = UserDefaults.standard.string(forKey: "cyphr_id"), !storedId.isEmpty {
-            self.isAuthenticated = true
-            self.currentUserId = storedId
-            self.isCheckingAuth = false
-            return
-        }
+        // Сохранить сессию
+        AuthTokenStore.save(token)
+        UserDefaults.standard.set(cyphrId, forKey: "cyphr_id")
+        UserDefaults.standard.set(true, forKey: "device_has_identity")
+        UserDefaults.standard.set(Date(), forKey: "auth_token_date")
         
-        // 2) Попробовать авто-логин, если локальная identity есть (Face ID один раз)
-        let autoLoggedIn = await authService.autoLoginIfPossible()
-        if autoLoggedIn {
-            self.isAuthenticated = true
-            self.currentUserId = UserDefaults.standard.string(forKey: "cyphr_id")
-            self.isCheckingAuth = false
-            return
-        }
-        
-        // 3) Нет локальной identity или авто-логин не удался — показать Welcome
-        if let username = await cyphrIdentity.checkStoredIdentity() {
-            // Локальный ID есть, но токена нет или логин не прошел — оставим пользователя на Welcome для явного входа
-            self.currentUserId = username
-        } else if let udId = UserDefaults.standard.string(forKey: "cyphr_id"), !udId.isEmpty {
-            self.currentUserId = udId
-        } else {
-            self.currentUserId = nil
-        }
-        
-        isAuthenticated = false
-        isCheckingAuth = false
+        print("✅ Authentication completed: @\(cyphrId)")
+        print("🎯 Device identity bound: \(cyphrId)")
     }
     
+    @MainActor
+    func checkAuthentication() async {
+        print("🔍 Checking authentication...")
+        isCheckingAuth = true
+
+        // 🎯 ПРИНЦИП: ОДНО УСТРОЙСТВО = ОДИН CYPHR ID
+        // CRITICAL: First check if we have ANY stored data that needs protection
+        let hasStoredUsername = UserDefaults.standard.string(forKey: "cyphr_id") != nil
+
+        if hasStoredUsername {
+            // Device might have identity - require Face ID FIRST
+            print("🔐 Device has stored data - requesting biometric authentication...")
+
+            #if os(iOS)
+            do {
+                // Request Face ID/Touch ID immediately
+                _ = try await BiometricAuthService.shared.authenticate(
+                    reason: "Authenticate to access your Cyphr identity",
+                    allowPINFallback: false  // Don't allow PIN here, just biometric check
+                )
+                print("✅ Biometric authentication successful")
+            } catch {
+                // Face ID failed/cancelled - treat as no identity
+                print("❌ Biometric authentication failed - treating as new device")
+                hasDeviceIdentity = false
+                deviceCyphrId = nil
+                isAuthenticated = false
+                currentUserId = nil
+                isCheckingAuth = false
+                return
+            }
+            #endif
+        }
+
+        // Now check for stored identity AFTER biometric success
+        do {
+            if let storedCyphrId = try await cyphrIdentity.checkStoredIdentity() {
+                // У устройства есть сохраненная identity
+                print("📱 Device has stored identity: @\(storedCyphrId)")
+
+                // Validate existence on server via recovery/init; if not found, wipe local identity
+                do {
+                    let initResp = try await networkService.initiateRecovery(cyphrId: storedCyphrId)
+                    if initResp.success {
+                        // User exists (server returned challenge/ttl)
+                        hasDeviceIdentity = true
+                        deviceCyphrId = storedCyphrId
+                    } else {
+                        hasDeviceIdentity = true // default safe
+                        deviceCyphrId = storedCyphrId
+                    }
+                } catch let netErr as NetworkError {
+                    switch netErr {
+                    case .notFound:
+                        print("🧹 Server reports @\\(storedCyphrId) NOT FOUND — clearing local identity")
+                        cyphrIdentity.deleteIdentity()
+                        AuthTokenStore.clear()
+                        hasDeviceIdentity = false
+                        deviceCyphrId = nil
+                        isAuthenticated = false
+                        currentUserId = nil
+                        isCheckingAuth = false
+                        return
+                    case .noConnection:
+                        print("⚠️ Offline during challenge check — keeping local identity state")
+                        hasDeviceIdentity = true
+                        deviceCyphrId = storedCyphrId
+                    default:
+                        print("ℹ️ Challenge check error (keeping local identity): \\((netErr as Error).localizedDescription)")
+                        hasDeviceIdentity = true
+                        deviceCyphrId = storedCyphrId
+                    }
+                } catch {
+                    print("ℹ️ Challenge check unexpected error (keeping local identity): \\(error)")
+                    hasDeviceIdentity = true
+                    deviceCyphrId = storedCyphrId
+                }
+                
+                // 2. Проверяем есть ли активная JWT сессия
+                if let token = AuthTokenStore.load(),
+                   !token.isEmpty,
+                   isTokenValid(token) {
+                    print("🎫 Valid active session found - auto-login")
+                    
+                    // Есть валидная сессия - сразу в приложение
+                    self.isAuthenticated = true
+                    self.currentUserId = storedCyphrId
+                    // Sync shared identity for UI bindings
+                    CyphrIdentity.shared.setCurrentCyphrId(storedCyphrId)
+                    self.isCheckingAuth = false
+                    return
+                }
+                
+                print("❌ No valid session - user needs to unlock device identity")
+                // 3. Нет валидной сессии - показать Welcome с кнопкой "Unlock"
+                self.isAuthenticated = false
+                self.currentUserId = nil // НЕ устанавливаем currentUserId пока не разлочен
+                
+            } else {
+                print("🆕 Device has NO identity - completely new device")
+                // У устройства нет identity - новый пользователь или новое устройство
+                hasDeviceIdentity = false
+                deviceCyphrId = nil
+                isAuthenticated = false
+                currentUserId = nil
+            }
+        } catch {
+            print("❌ Error checking device identity: \(error)")
+            // В случае ошибки - показываем как новое устройство
+            hasDeviceIdentity = false
+            deviceCyphrId = nil
+            isAuthenticated = false
+            currentUserId = nil
+        }
+        
+        isCheckingAuth = false
+        print("🔍 Authentication check completed. Has identity: \(hasDeviceIdentity), Authenticated: \(isAuthenticated)")
+    }
+    
+    private func isTokenValid(_ token: String) -> Bool {
+        // Простая проверка на истечение JWT
+        // TODO: Implement proper JWT validation
+        guard !token.isEmpty else { return false }
+        
+        // Проверяем возраст токена
+        if let tokenDate = UserDefaults.standard.object(forKey: "auth_token_date") as? Date {
+            let daysSinceToken = Calendar.current.dateComponents([.day], from: tokenDate, to: Date()).day ?? 0
+            return daysSinceToken < 7 // Токен валиден 7 дней
+        }
+        
+        return true // Если нет даты - считаем валидным (first time)
+    }
+    
+    @MainActor
     func logout() {
+        print("📤 Logging out user...")
         isAuthenticated = false
         currentUser = nil
-        UserDefaults.standard.removeObject(forKey: "auth_token")
-        UserDefaults.standard.removeObject(forKey: "cyphr_id")
+        
+        // Очистить только сессию, identity остается на устройстве
+        AuthTokenStore.clear()
+        
+        // Отключить messaging
         MessagingService.shared.disconnect()
+        
+        print("📤 User logged out (identity preserved on device)")
+    }
+    
+    @MainActor
+    func deleteDeviceIdentity() {
+        print("🗑️ Deleting device identity permanently...")
+        
+        // КРИТИЧЕСКАЯ ОПЕРАЦИЯ: Полное удаление identity с устройства
+        cyphrIdentity.deleteIdentity()
+        
+        hasDeviceIdentity = false
+        deviceCyphrId = nil
+        isAuthenticated = false
+        currentUser = nil
+        currentUserId = nil
+        
+        // Очистить все данные
+        AuthTokenStore.clear()
+        UserDefaults.standard.removeObject(forKey: "cyphr_id")
+        UserDefaults.standard.removeObject(forKey: "device_has_identity")
+        
+        print("🗑️ Device identity completely deleted - device is now clean")
     }
 }

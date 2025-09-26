@@ -14,6 +14,7 @@ struct RecoveryPhraseView: View {
     // View states
     @State private var viewMode: ViewMode = .display
     @State private var isRevealed: Bool = false
+    @State private var loadedPhrase: [String] = []
     @State private var hasWrittenDown: Bool = false
     @State private var testWordIndices: [Int] = []
     @State private var testAnswers: [String] = ["", "", ""]
@@ -108,6 +109,28 @@ struct RecoveryPhraseView: View {
             detectScreenshotAttempts()
         }
     }
+
+    private func currentPhrase() -> [String] {
+        return loadedPhrase.isEmpty ? recoveryPhrase : loadedPhrase
+    }
+
+    private func revealPhrase() {
+        Task {
+            do {
+                #if os(iOS)
+                let ctx = try await CyphrIdentity.shared.obtainAuthenticatedContext(reason: "Reveal your recovery phrase")
+                let words = try await CyphrIdentity.shared.loadRecoveryPhrase(context: ctx)
+                #else
+                let words = try await CyphrIdentity.shared.loadRecoveryPhrase(context: nil)
+                #endif
+                loadedPhrase = words
+                withAnimation { isRevealed = true }
+            } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
     
     // MARK: - Display Mode Content
     
@@ -171,7 +194,7 @@ struct RecoveryPhraseView: View {
                     Spacer()
                     
                     if !isRevealed {
-                        Button(action: { withAnimation { isRevealed = true } }) {
+                        Button(action: revealPhrase) {
                             Label("Reveal", systemImage: "eye")
                                 .font(.caption)
                                 .foregroundColor(.purple)
@@ -188,7 +211,7 @@ struct RecoveryPhraseView: View {
                             GridItem(.flexible()),
                             GridItem(.flexible())
                         ], spacing: 12) {
-                            ForEach(Array(recoveryPhrase.enumerated()), id: \.offset) { index, word in
+                            ForEach(Array(currentPhrase().enumerated()), id: \.offset) { index, word in
                                 WordCell(
                                     number: index + 1,
                                     word: word,
@@ -529,6 +552,42 @@ struct RecoveryPhraseView: View {
             }
         }
         #endif
+    }
+}
+
+// MARK: - Supporting Views
+
+struct ProgressHeader: View {
+    let currentStep: Int
+    let totalSteps: Int
+
+    var body: some View {
+        VStack(spacing: 8) {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.2))
+                        .frame(height: 8)
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [.purple, .blue]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geometry.size.width * CGFloat(currentStep) / CGFloat(max(totalSteps, 1)), height: 8)
+                        .animation(.easeInOut(duration: 0.3), value: currentStep)
+                }
+            }
+            .frame(height: 8)
+
+            Text("Step \(currentStep) of \(max(totalSteps, 1))")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.8))
+        }
+        .padding(.horizontal, 40)
     }
 }
 

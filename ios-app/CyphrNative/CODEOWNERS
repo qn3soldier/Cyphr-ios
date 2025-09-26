@@ -1,0 +1,41 @@
+# CODEOWNERS - Cyphr Messenger iOS
+# These owners will be requested for review when someone opens a pull request
+
+# Global owners (for all files)
+* @qn3soldier
+
+# iOS specific code
+ios-app/**/*.swift @qn3soldier
+ios-app/**/*.xcodeproj @qn3soldier
+ios-app/**/Info.plist @qn3soldier
+
+# Critical security files - require multiple reviewers
+ios-app/**/PostQuantumCrypto.swift @qn3soldier
+ios-app/**/CyphrIdentity.swift @qn3soldier
+ios-app/**/EnterpriseKeychainService.swift @qn3soldier
+ios-app/**/BiometricAuthService.swift @qn3soldier
+ios-app/**/HDWalletService.swift @qn3soldier
+
+# Architecture documentation - protected
+*.md @qn3soldier
+docs/*.md @qn3soldier
+ENCRYPTION_ARCHITECTURE.md @qn3soldier
+SERVER_ARCHITECTURE.md @qn3soldier
+CYPHR_ID_ARCHITECTURE.md @qn3soldier
+CYPHR_COMPLETE_UX_ARCHITECTURE.md @qn3soldier
+
+# Server code - Zero-Knowledge enforcement
+server/**/*.js @qn3soldier
+server/**/*.cjs @qn3soldier
+server/**/*.ts @qn3soldier
+
+# CI/CD and build configuration
+.github/** @qn3soldier
+dangerfile.js @qn3soldier
+Package.swift @qn3soldier
+
+# BIP39 wordlist - critical resource
+Resources/bip39-english.txt @qn3soldier
+
+# SwiftKyber - Post-Quantum Crypto
+SwiftKyber/** @qn3soldier

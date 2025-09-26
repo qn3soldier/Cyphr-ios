@@ -1,7 +1,7 @@
 # 🚀 CYPHR MESSENGER SERVER ARCHITECTURE
 **Version**: 5.0.0  
 **Last Updated**: September 7, 2025  
-**Status**: ✅ **PRODUCTION OPERATIONAL**
+**Status**: ✅ **Operational** (Reality Check 2025‑09‑24: PM2 restart/502 fixed; auth v5.0 endpoints live; DB cleanup done)
 
 ---
 
@@ -695,3 +695,4 @@ psql ... < backup.sql
 **Code Coverage**: 95%  
 **Security Score**: A+  
 **Ready for**: 1,000+ concurrent users
+> Reality Check (24 Sep): `/api/cyphr-id/challenge` ранее не валидировал существование @id; клиент теперь использует `/recovery/init` для проверки наличия и стирает локальную identity при 404. Эндпоинты login/recovery работают; серверные логи/PM2 — чисто.

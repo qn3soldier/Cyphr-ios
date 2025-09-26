@@ -1,0 +1,55 @@
+{
+  "version": "3.1.0",
+  "date": "2025-09-19T15:09:15-04:00",
+  "status": "READY_FOR_FIXES",
+  "real_completion": 62,
+  "critical_blockers": [
+    {
+      "id": "BIP39_BUNDLE",
+      "severity": "CRITICAL",
+      "file": "Resources/bip39-english.txt",
+      "issue": "Not in Copy Bundle Resources",
+      "fix": "Add to Xcode Build Phases"
+    },
+    {
+      "id": "FACE_ID_DOUBLE",
+      "severity": "HIGH",
+      "file": "BiometricAuthService.swift",
+      "issue": "Double Face ID prompt",
+      "fix": "Single LAContext instance"
+    },
+    {
+      "id": "KEYCHAIN_PERSISTENCE",
+      "severity": "CRITICAL",
+      "file": "EnterpriseKeychainService.swift",
+      "issue": "Keys lost on restart",
+      "fix": "Use kSecAttrAccessibleWhenUnlockedThisDeviceOnly"
+    },
+    {
+      "id": "AUTO_LOGIN",
+      "severity": "HIGH",
+      "file": "CyphrIdSignUpView.swift",
+      "issue": "No auto-login after signup",
+      "fix": "Set isAuthenticated and navigate"
+    },
+    {
+      "id": "SOCKET_IO",
+      "severity": "HIGH",
+      "file": "MessagingService.swift",
+      "issue": "WebSocket fails to connect",
+      "fix": "Configure Socket.IO properly"
+    }
+  ],
+  "architecture": {
+    "zero_knowledge": true,
+    "post_quantum": "Kyber1024+ChaCha20",
+    "recovery_words": 12,
+    "ios_min_target": "15.0",
+    "keychain_policy": "WhenUnlockedThisDeviceOnly+biometryCurrentSet"
+  },
+  "server": {
+    "host": "23.22.159.209",
+    "url": "https://app.cyphrmessenger.app",
+    "database": "cyphr-messenger-prod.cgni4my4o6a2.us-east-1.rds.amazonaws.com"
+  }
+}

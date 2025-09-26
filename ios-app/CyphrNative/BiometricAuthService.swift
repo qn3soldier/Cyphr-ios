@@ -10,6 +10,10 @@ final class BiometricAuthService {
     static let shared = BiometricAuthService()
 
     #if os(iOS)
+    private var sharedContext: LAContext?
+    private var isAuthenticating = false
+    private var pendingContinuations: [CheckedContinuation<AuthResult, Error>] = []
+
     private init() {}
 
     enum AuthResult {
@@ -44,9 +48,24 @@ final class BiometricAuthService {
     /// the device owner authentication policy is used (Face ID/Touch ID → device PIN).
     @MainActor
     func authenticate(reason: String, allowPINFallback: Bool) async throws -> AuthResult {
+        if isAuthenticating {
+            if let context = sharedContext {
+                return .success(context: context)
+            }
+
+            return try await withCheckedThrowingContinuation { continuation in
+                pendingContinuations.append(continuation)
+            }
+        }
+
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+
         let context = LAContext()
         context.localizedFallbackTitle = allowPINFallback ? "Use Device Passcode" : ""
         context.touchIDAuthenticationAllowableReuseDuration = 0
+
+        sharedContext = nil
 
         let policy: LAPolicy = allowPINFallback ? .deviceOwnerAuthentication : .deviceOwnerAuthenticationWithBiometrics
 
@@ -54,39 +73,84 @@ final class BiometricAuthService {
         guard context.canEvaluatePolicy(policy, error: &evaluationError) else {
             if let error = evaluationError {
                 let laError = LAError(_nsError: error)
+                let mappedError: AuthError
                 switch laError.code {
                 case .biometryNotAvailable:
-                    throw AuthError.notAvailable
+                    mappedError = .notAvailable
                 case .biometryNotEnrolled:
-                    throw AuthError.notEnrolled
+                    mappedError = .notEnrolled
                 case .biometryLockout:
-                    throw AuthError.lockout
+                    mappedError = .lockout
                 default:
-                    throw AuthError.authenticationFailed
+                    mappedError = .authenticationFailed
                 }
+                context.invalidate()
+                resumePending(with: .failure(mappedError))
+                throw mappedError
             }
+            context.invalidate()
+            resumePending(with: .failure(AuthError.notAvailable))
             throw AuthError.notAvailable
         }
 
         do {
             let success = try await context.evaluatePolicy(policy, localizedReason: reason)
-            guard success else { throw AuthError.authenticationFailed }
-            return .success(context: context)
-        } catch let error as LAError {
-            switch error.code {
-            case .userCancel, .appCancel, .systemCancel:
-                throw AuthError.userCancelled
-            case .biometryLockout:
-                throw AuthError.lockout
-            case .biometryNotAvailable:
-                throw AuthError.notAvailable
-            case .biometryNotEnrolled:
-                throw AuthError.notEnrolled
-            default:
+            guard success else {
+                context.invalidate()
+                resumePending(with: .failure(AuthError.authenticationFailed))
                 throw AuthError.authenticationFailed
             }
+            sharedContext = context
+            let result: AuthResult = .success(context: context)
+            resumePending(with: .success(result))
+            return result
+        } catch let error as LAError {
+            context.invalidate()
+            let mappedError: AuthError
+            switch error.code {
+            case .userCancel, .appCancel, .systemCancel:
+                mappedError = .userCancelled
+            case .biometryLockout:
+                mappedError = .lockout
+            case .biometryNotAvailable:
+                mappedError = .notAvailable
+            case .biometryNotEnrolled:
+                mappedError = .notEnrolled
+            default:
+                mappedError = .authenticationFailed
+            }
+            resumePending(with: .failure(mappedError))
+            throw mappedError
         } catch {
+            context.invalidate()
+            resumePending(with: .failure(AuthError.authenticationFailed))
             throw AuthError.authenticationFailed
+        }
+    }
+
+    /// Provide the most recent authenticated context if available to avoid
+    /// showing multiple Face ID prompts when several subsystems need access.
+    func currentAuthenticatedContext() -> LAContext? {
+        sharedContext
+    }
+
+    /// Invalidate and clear the cached context after sensitive flows finish.
+    func invalidateCachedContext() {
+        sharedContext?.invalidate()
+        sharedContext = nil
+    }
+
+    private func resumePending(with result: Result<AuthResult, Error>) {
+        guard !pendingContinuations.isEmpty else { return }
+        let continuations = pendingContinuations
+        pendingContinuations.removeAll()
+        for continuation in continuations {
+            switch result {
+            case .success(let value):
+                continuation.resume(returning: value)
+            case .failure(let error):
+                continuation.resume(throwing: error)
+            }
         }
     }
     #else
@@ -104,5 +168,8 @@ final class BiometricAuthService {
     func authenticate(reason: String, allowPINFallback: Bool) async throws -> AuthResult {
         throw AuthError.notSupported
     }
+
+    func currentAuthenticatedContext() -> LAContext? { nil }
+    func invalidateCachedContext() {}
     #endif
 }

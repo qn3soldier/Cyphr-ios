@@ -1,0 +1,239 @@
+version: 3.1.0
+mode: patch_only  # ТОЛЬКО patch/diff правки, НЕ перезаписывать файлы!
+safety_level: maximum
+bootstrap_completed: false
+
+# Репозиторий GitHub
+github:
+  repo: https://github.com/qn3soldier/Cyphr-ios
+  branch: main
+  path: ios-app/CyphrNative
+
+# ОБЯЗАТЕЛЬНОЕ ЧТЕНИЕ ПЕРЕД РАБОТОЙ
+read_first:
+  critical:
+    - main files/CLAUDE_recovered.md  # РЕАЛЬНЫЙ СТАТУС: 62% готовности, 5 блокеров
+    - main files/ENCRYPTION_ARCHITECTURE.md  # Zero-Knowledge правила
+    - main files/SERVER_ARCHITECTURE.md  # Сервер БЕЗ дешифрования
+    - main files/CYPHR_ID_ARCHITECTURE.md  # Identity flow
+    - main files/CYPHR_COMPLETE_UX_ARCHITECTURE.md  # UX требования
+
+  reference:
+    - main files/CYPHR_PRODUCTION_ROADMAP.md
+    - main files/REAL_PROJECT_STATUS_18_SEP_2025.md
+    - /Users/daniilbogdanov/Desktop/CYPHR_CODEX_AUTOPILOT_V3.1_FINAL.md
+    - CODEX_SERVER_GUIDE.md  # Полный гайд по прод-серверу
+    - WEBRTC_SIGNALING_GUIDE.md  # Сигналинг и payload форматы
+
+# КРИТИЧЕСКИЕ БЛОКЕРЫ - ИСПРАВИТЬ ПЕРВЫМИ!
+critical_blockers:
+  1_BIP39_NOT_IN_BUNDLE:
+    severity: CRITICAL
+    file: Resources/bip39-english.txt
+    problem: "Файл существует, но НЕ в Copy Bundle Resources"
+    fix: |
+      1. Open CyphrNative.xcodeproj in Xcode
+      2. Select CyphrNative target
+      3. Build Phases → Copy Bundle Resources
+      4. Click + → Add Resources/bip39-english.txt
+      5. Clean Build Folder (⇧⌘K)
+      6. Build (⌘B)
+    acceptance:
+      - "Recovery phrase показывает 12 слов (НЕ 24!)"
+      - "Файл включен в bundle"
+      - "BIP39WordList может загрузить слова"
+
+  2_FACE_ID_DOUBLE_PROMPT:
+    severity: HIGH
+    file: BiometricAuthService.swift
+    line: 187
+    problem: "Face ID запрашивается дважды"
+    fix: |
+      - Использовать единый LAContext
+      - BiometricAuthService и KeychainService должны делить контекст
+      - Добавить флаг isAuthenticating для предотвращения
+    acceptance:
+      - "Face ID промпт показывается ОДИН раз"
+      - "После успеха сразу переход в приложение"
+      - "PIN fallback работает"
+
+  3_KEYCHAIN_NOT_PERSISTENT:
+    severity: CRITICAL
+    file: EnterpriseKeychainService.swift
+    line: 78
+    problem: "Ключи теряются после перезапуска"
+    fix: |
+      - Заменить kSecAttrAccessibleAfterFirstUnlock
+      - На kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+      - Добавить biometryCurrentSet для чувствительных данных
+      - Проверить чтение после записи
+    acceptance:
+      - "Ключи сохраняются после force quit"
+      - "Ключи доступны после перезагрузки устройства"
+      - "Biometry требуется для доступа к ключам"
+
+  4_NO_AUTO_LOGIN:
+    severity: HIGH
+    file: CyphrIdSignUpView.swift
+    line: 234
+    problem: "После регистрации пользователь застревает"
+    fix: |
+      - Установить isAuthenticated = true после успешной регистрации
+      - Сохранить JWT в Keychain
+      - Навигация должна автоматически перейти на MainTabView
+    acceptance:
+      - "После Sign Up → сразу MainTabView"
+      - "При перезапуске → автоматический вход если есть JWT"
+      - "Sign Out корректно очищает сессию"
+
+  5_SOCKET_IO_BROKEN:
+    severity: HIGH
+    file: MessagingService.swift
+    line: 56
+    problem: "WebSocket connection fails"
+    fix: |
+      - Проверить URL: wss://app.cyphrmessenger.app
+      - Добавить JWT в handshake auth
+      - Настроить reconnection с exponential backoff
+      - Добавить LoadingOverlay при подключении
+    acceptance:
+      - "Socket подключается при входе"
+      - "Reconnect работает при потере связи"
+      - "Real-time messages доставляются"
+
+# ЖЕСТКИЕ ОГРАНИЧЕНИЯ - НИКОГДА НЕ НАРУШАТЬ!
+guardrails:
+  forbidden_actions:
+    - overwrite_existing_files  # Только patch/diff!
+    - add_server_decryption  # Zero-Knowledge нарушение!
+    - commit_secrets  # Все секреты в AWS Secrets Manager
+    - change_recovery_word_count  # ВСЕГДА 12 слов!
+    - use_wrong_keychain_policy  # ТОЛЬКО WhenUnlockedThisDeviceOnly
+
+  protected_files:
+    - main files/ENCRYPTION_ARCHITECTURE.md
+    - main files/SERVER_ARCHITECTURE.md
+    - main files/CYPHR_ID_ARCHITECTURE.md
+    - main files/CYPHR_COMPLETE_UX_ARCHITECTURE.md
+
+  required_constants:
+    recovery_words: 12  # НЕ 24!
+    ios_min_target: "15.0"
+    keychain_policy: "kSecAttrAccessibleWhenUnlockedThisDeviceOnly"
+    biometry_addon: "biometryCurrentSet"
+
+# АРХИТЕКТУРНЫЕ ПРАВИЛА
+architecture:
+  zero_knowledge:
+    - "Server NEVER sees private keys"
+    - "ALL crypto happens on iOS client"
+    - "Server only routes encrypted blobs"
+    - "No decrypt/Kyber/ChaCha on server"
+
+  post_quantum:
+    - "Kyber1024 for key exchange"
+    - "ChaCha20-Poly1305 for messages"
+    - "SwiftKyber local package (./SwiftKyber)"
+    - "Hardware acceleration when available"
+
+  ux_flow:
+    signup: "ID → Generate Keys → Biometric Setup → PIN Setup → Register → Show Recovery (12 words) → MainTabView"
+    signin: "ID → Biometric/PIN → MainTabView"
+    loading: "EVERY async operation MUST show LoadingOverlay"
+
+  security:
+    keychain: "WhenUnlockedThisDeviceOnly + biometryCurrentSet"
+    device_binding: "SHA256(SALT + deviceId + model + OS + version)"
+    tls: "1.3 minimum + certificate pinning"
+
+# ПРОЦЕСС РАБОТЫ
+workflow:
+  approach: Propose → Apply → Verify
+
+  propose:
+    - Identify ONE specific blocker
+    - Read relevant architecture docs
+    - Plan minimal patch/diff fix
+    - Estimate risk and rollback
+
+  apply:
+    - Create patch file (git diff format)
+    - Make ONLY necessary changes
+    - Preserve all Zero-Knowledge invariants
+    - Add LoadingOverlay for new async ops
+
+  verify:
+    - Run xcodebuild test
+    - Check forbid-server-decrypt passes
+    - Test E2E flow (SignUp → Chats)
+    - Confirm blocker is fixed
+
+# ПРОВЕРКИ CI/CD
+ci_checks:
+  pre_merge:
+    - zk-guard-server  # Запрет decrypt на сервере
+    - secrets-scan  # Проверка на секреты
+    - ios-build-test  # Сборка и тесты
+    - danger-review  # Автоматический review
+
+  gates:
+    - BIP39 in Bundle Resources
+    - Face ID usage description
+    - iOS target >= 15.0
+    - LoadingOverlay usage
+    - Keychain correct policy
+
+# ИНФРАСТРУКТУРА
+infrastructure:
+  production:
+    server: "23.22.159.209"
+    url: "https://app.cyphrmessenger.app"
+    ssh: "ssh -i /Users/daniilbogdanov/cyphrmessenger/cyphr-messenger-key.pem ubuntu@23.22.159.209"
+
+  database:
+    host: "cyphr-messenger-prod.cgni4my4o6a2.us-east-1.rds.amazonaws.com"
+    port: 5432
+    name: "cyphr_messenger_prod"
+    user: "cyphr_admin"
+
+  monitoring:
+    pm2: "pm2 status"
+    logs: "pm2 logs cyphr-backend --lines 100"
+    health: "curl https://app.cyphrmessenger.app/api/health"
+
+# КОМАНДЫ ДЛЯ РАБОТЫ
+commands:
+  bootstrap: "./codex_bootstrap.sh"
+
+  xcode:
+    open: "open CyphrNative.xcodeproj"
+    build: "xcodebuild -project CyphrNative.xcodeproj -scheme CyphrNative -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build"
+    test: "xcodebuild -project CyphrNative.xcodeproj -scheme CyphrNative -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' test"
+
+  git:
+    status: "git status"
+    diff: "git diff --no-index"
+    apply: "git apply"
+
+  server:
+    ssh: "ssh -i ~/cyphrmessenger/cyphr-messenger-key.pem ubuntu@23.22.159.209"
+    logs: "pm2 logs cyphr-backend"
+    restart: "pm2 restart cyphr-backend"
+
+# МЕТРИКИ УСПЕХА
+success_metrics:
+  - "All 5 critical blockers fixed"
+  - "62% → 100% completion"
+  - "Zero-Knowledge preserved"
+  - "All CI checks green"
+  - "E2E flow works: SignUp → Security → Chats → Messaging"
+  - "App Store ready"
+
+# ЗАМЕТКИ
+notes: |
+  - НИКОГДА не использовать Write для .md файлов (только Edit)
+  - ВСЕГДА 12 слов для recovery (не 24!)
+  - Сервер НИКОГДА не должен содержать decrypt/Kyber/ChaCha
+  - Каждый PR должен быть patch-only (не перезаписывать файлы)
+  - LoadingOverlay обязателен для ВСЕХ async операций
+  - Агент может запускать локальные тесты, подключаться к AWS (EC2/RDS) и аккуратно редактировать сервер/БД при необходимости

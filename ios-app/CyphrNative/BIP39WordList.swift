@@ -26,6 +26,12 @@ struct BIP39WordList {
         return []
     }
 
+    /// Legacy accessor kept for compatibility with older code paths that
+    /// expect an "emergency" mnemonic list. Mirrors the canonical English list.
+    static var emergencyWordList: [String] {
+        englishWords
+    }
+
     private static func loadBundledWordList() -> [String]? {
         guard let url = Bundle.main.url(forResource: "bip39-english", withExtension: "txt") else {
             print("⚠️ BIP39 loader: bundled word list not found")

@@ -1,368 +1,393 @@
 import SwiftUI
+import LocalAuthentication
 
+/// Welcome screen - handles "One Device = One Cyphr ID" principle
+/// Shows different options based on device state
 struct WelcomeView: View {
-    @StateObject private var viewModel = WelcomeViewModel()
     @EnvironmentObject var authManager: AuthenticationManager
-    @State private var showSignUp = false
-    @State private var glowAmount = 0.5
+    @State private var showingSignUp = false
+    @State private var showingSignIn = false
+    @State private var isUnlockingIdentity = false
+    @State private var errorMessage: String?
+    @State private var showError = false
+    @State private var attemptedAutoUnlock = false
+    @State private var showPinUnlock = false
+    @State private var pendingLoginCyphrId: String?
     
     var body: some View {
         ZStack {
-            // Premium gradient background
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color(red: 0.1, green: 0.05, blue: 0.2),
-                        Color(red: 0.15, green: 0.1, blue: 0.25)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
-                // Subtle gradient overlay without rotation
-                LinearGradient(
-                    colors: [
-                        Color.purple.opacity(0.15),
-                        Color.blue.opacity(0.1),
-                        Color.clear
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-            }
+            // Gradient background
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.06, blue: 0.10),
+                    Color(red: 0.07, green: 0.08, blue: 0.12)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                // Header Section
-                VStack(spacing: 25) {
-                    // REAL Cyphr Logo with neon pulse
-                    Image("CyphrLogo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 110, height: 110)
-                        .shadow(color: .cyan, radius: glowAmount * 25)
-                        .shadow(color: .purple.opacity(0.8), radius: glowAmount * 35)
-                        .shadow(color: .blue.opacity(0.6), radius: glowAmount * 45)
-                        .onAppear {
-                            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                                glowAmount = 1.2
-                            }
-                        }
-                    
-                    // Title
-                    VStack(spacing: 10) {
-                        Text("Cyphr Messenger")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.white, .white.opacity(0.9)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                        
-                        Text("Post-Quantum Secure Messaging")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                }
-                .padding(.top, 80)
+            VStack(spacing: 40) {
+                // Header
+                header
                 
-                Spacer()
+                // Network status banner
+                NetworkBannerView()
                 
-                // Main Content
-                if viewModel.isCheckingCredentials {
-                    // Loading state with style
-                    VStack(spacing: 20) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .purple))
-                            .scaleEffect(1.5)
-                        
-                        Text("Checking for stored identity...")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(20)
-                    .padding(.horizontal, 40)
-                    
-                } else if viewModel.hasStoredIdentity {
-                    // Auto-login card with glassmorphism
-                    VStack(spacing: 25) {
-                        Text("Welcome back")
-                            .font(.title2.weight(.semibold))
-                            .foregroundColor(.white)
-                        
-                        // Cyphr ID display
-                        HStack {
-                            Image(systemName: "at")
-                                .foregroundColor(.purple)
-                            Text(viewModel.storedCyphrId)
-                                .font(.title3.weight(.bold))
-                                .foregroundColor(.white)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(30)
-                        
-                        // Face ID button
-                        Button(action: {
-                            Task {
-                                do {
-                                    guard let id = viewModel.storedCyphrId.nonEmpty else { return }
-                                    let result = try await AuthenticationService.shared.loginWithCyphrId(cyphrId: id)
-                                    print("✅ Login success: \(result.message)")
-                                } catch {
-                                    viewModel.errorMessage = error.localizedDescription
-                                    viewModel.showError = true
-                                }
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "faceid")
-                                    .font(.title2)
-                                Text("Unlock with Face ID")
-                                    .font(.headline)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.4, green: 0.0, blue: 1.0),
-                                        Color(red: 0.6, green: 0.2, blue: 1.0)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(15)
-                            .shadow(color: .purple.opacity(0.5), radius: 10, x: 0, y: 5)
-                        }
-                        
-                        Button(action: {
-                            viewModel.clearStoredIdentity()
-                        }) {
-                            Text("Use different identity")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.6))
-                        }
-                    }
-                    .padding(30)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(25)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 25)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.2),
-                                        Color.white.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .padding(.horizontal, 30)
-                    
-                } else {
-                    // Create new identity card
-                    VStack(spacing: 30) {
-                        VStack(spacing: 15) {
-                            Text("True Privacy. Zero Knowledge.")
-                                .font(.title2.weight(.bold))
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-                            
-                            Text("One device. One identity.\nComplete sovereignty.")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.7))
-                                .multilineTextAlignment(.center)
-                                .lineSpacing(4)
-                        }
-                        
-                        // Create Identity button with glow effect
-                        Button(action: {
-                            showSignUp = true
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.badge.key.fill")
-                                    .font(.title3)
-                                Text("Create Cyphr Identity")
-                                    .font(.headline)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.4, green: 0.0, blue: 1.0),
-                                        Color(red: 0.6, green: 0.2, blue: 1.0)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(16)
-                            .shadow(color: .purple.opacity(0.6), radius: 15, x: 0, y: 8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.white.opacity(0.1)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
-                        }
-                        
-                        Text("No email. No phone. No passwords.")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                    .padding(35)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(25)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 25)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.2),
-                                        Color.white.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .padding(.horizontal, 30)
-                }
+                // Device identity status
+                deviceStatusSection
                 
-                Spacer()
+                // Action buttons based on device state
+                actionButtons
                 
-                // Footer with icons (no emoji)
-                HStack(spacing: 30) {
-                    FeatureItem(icon: "lock.shield", text: "Post-Quantum")
-                    FeatureItem(icon: "cpu", text: "Secure Enclave")
-                    FeatureItem(icon: "key.fill", text: "Self-Sovereign")
-                }
-                .padding(.bottom, 40)
+                // Footer
+                footer
             }
+            .padding(.horizontal, 30)
+            .padding(.vertical, 40)
         }
-        .sheet(isPresented: $showSignUp) {
+        .sheet(isPresented: $showingSignUp) {
             CyphrIdSignUpView()
         }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK") {
-                viewModel.showError = false
-            }
-        } message: {
-            Text(viewModel.errorMessage)
+        .sheet(isPresented: $showingSignIn) {
+            CyphrIdLoginView()
         }
-        .onAppear {
-            Task {
-                await viewModel.checkStoredCredentials()
-            }
-        }
-        .alert("Identity Cleared", isPresented: $viewModel.identityCleared) {
-            Button("OK") { 
-                viewModel.identityCleared = false
-                // Refresh the view
+        .sheet(isPresented: $showPinUnlock) {
+            PinUnlockView {
+                guard let cyphrId = pendingLoginCyphrId else { return }
                 Task {
-                    await viewModel.checkStoredCredentials()
+                    do {
+                        let result = try await AuthenticationService.shared.loginWithCyphrId(cyphrId: cyphrId)
+                        if !result.success {
+                            errorMessage = result.message
+                            showError = true
+                        }
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        showError = true
+                    }
                 }
             }
+        }
+        .alert("Authentication Error", isPresented: $showError) {
+            Button("OK") { 
+                showError = false
+                errorMessage = nil
+            }
         } message: {
-            Text("Identity has been cleared. You can now create a new one.")
-        }
-    }
-}
-
-// Feature item component
-struct FeatureItem: View {
-    let icon: String
-    let text: String
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.purple, .blue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Text(text)
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.6))
-        }
-    }
-}
-
-// MARK: - View Model
-class WelcomeViewModel: ObservableObject {
-    @Published var isCheckingCredentials = true
-    @Published var hasStoredIdentity = false
-    @Published var storedCyphrId = ""
-    @Published var showError = false
-    @Published var errorMessage = ""
-    @Published var identityCleared = false
-    
-    private let cyphrIdentity = CyphrIdentity.shared
-    
-    @MainActor
-    func checkStoredCredentials() async {
-        isCheckingCredentials = true
-        
-        // Check for stored cyphr_id WITHOUT triggering Face ID
-        if let cyphrId = await cyphrIdentity.checkStoredIdentity() {
-            hasStoredIdentity = true
-            storedCyphrId = cyphrId
-            print("✅ Found stored identity: @\(cyphrId)")
-        } else {
-            // Fallback: check UserDefaults session (post-login persistence)
-            if let udId = UserDefaults.standard.string(forKey: "cyphr_id"), !udId.isEmpty {
-                hasStoredIdentity = true
-                storedCyphrId = udId
-                print("✅ Found stored identity in UserDefaults: @\(udId)")
-            } else {
-                hasStoredIdentity = false
-                print("ℹ️ No stored identity found")
+            if let errorMessage = errorMessage {
+                Text(errorMessage)
             }
         }
-        
-        isCheckingCredentials = false
+        .onAppear {
+            // No auto-unlock needed - Face ID is now checked at app launch
+            // If we reach WelcomeView, user either:
+            // 1. Has no identity (new device)
+            // 2. Face ID already failed/cancelled at launch
+            // 3. Has identity but no valid session (needs manual unlock)
+        }
     }
     
-    func clearStoredIdentity() {
-        hasStoredIdentity = false
-        storedCyphrId = ""
+    // MARK: - Header
+    
+    private var header: some View {
+        VStack(spacing: 20) {
+            // Cyphr logo - using text + icon for now until asset is added
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.purple, .blue, .cyan],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 100, height: 100)
+                    .shadow(color: .purple.opacity(0.5), radius: 20)
+                    .shadow(color: .blue.opacity(0.3), radius: 30)
+
+                Text("C")
+                    .font(.system(size: 60, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+
+            VStack(spacing: 8) {
+                Text("Cyphr Messenger")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, .white.opacity(0.9)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+
+                Text("Post-Quantum Secure Messaging")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.7))
+            }
+        }
+    }
+    
+    // MARK: - Device Status Section
+    
+    private var deviceStatusSection: some View {
+        VStack(spacing: 15) {
+            if authManager.hasDeviceIdentity {
+                // Device has identity
+                VStack(spacing: 12) {
+                    Label("Device Identity Found", systemImage: "checkmark.shield.fill")
+                        .font(.headline)
+                        .foregroundColor(.green)
+                    
+                    if let cyphrId = authManager.deviceCyphrId {
+                        Text("@\(cyphrId)")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.purple)
+                    }
+                    
+                    Text("This device is bound to your Cyphr identity")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.green.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                        )
+                )
+            } else {
+                // New device
+                VStack(spacing: 12) {
+                    Label("New Device", systemImage: "iphone.badge.plus")
+                        .font(.headline)
+                        .foregroundColor(.blue)
+                    
+                    Text("This device doesn't have a Cyphr identity yet")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.blue.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                        )
+                )
+            }
+        }
+    }
+    
+    // MARK: - Action Buttons
+    
+    private var actionButtons: some View {
+        VStack(spacing: 20) {
+            if authManager.hasDeviceIdentity {
+                // Device has identity - show unlock button
+                Button(action: {
+                    Task {
+                        await unlockDeviceIdentity()
+                    }
+                }) {
+                    HStack(spacing: 12) {
+                        if isUnlockingIdentity {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.9)
+                        } else {
+                            Image(systemName: "faceid")
+                                .font(.title2)
+                        }
+                        
+                        Text(isUnlockingIdentity ? "Unlocking..." : "Unlock with Face ID")
+                            .font(.headline)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [.purple, .blue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(15)
+                }
+                .disabled(isUnlockingIdentity)
+                
+                // Alternative: Sign in with recovery phrase
+                Button(action: {
+                    showingSignIn = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key.horizontal")
+                        Text("Use Recovery Phrase")
+                    }
+                    .font(.callout)
+                    .foregroundColor(.purple)
+                    .padding(.vertical, 12)
+                }
+                
+            } else {
+                // New device - show options
+                VStack(spacing: 15) {
+                    // Create new identity
+                    Button(action: {
+                        showingSignUp = true
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.badge.plus")
+                                .font(.title2)
+                            Text("Create Cyphr Identity")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [.purple, .blue],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(15)
+                    }
+                    
+                    // Restore existing identity
+                    Button(action: {
+                        showingSignIn = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "key.horizontal")
+                            Text("I Have Recovery Phrase")
+                        }
+                        .font(.callout)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 15)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 15)
+                                        .fill(Color.white.opacity(0.05))
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Footer
+    
+    private var footer: some View {
+        VStack(spacing: 15) {
+            // Features
+            VStack(spacing: 8) {
+                Label("Post-Quantum Encryption", systemImage: "shield.fill")
+                Label("Zero-Knowledge Architecture", systemImage: "eye.slash.fill")
+                Label("Hardware Security", systemImage: "cpu.fill")
+            }
+            .font(.caption)
+            .foregroundColor(.white.opacity(0.6))
+            
+            Text("One Device = One Identity")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.purple.opacity(0.8))
+                .padding(.top, 10)
+        }
+    }
+    
+    // MARK: - Actions
+    
+    @MainActor
+    private func unlockDeviceIdentity() async {
+        guard let cyphrId = authManager.deviceCyphrId else {
+            errorMessage = "No identity found on this device."
+            showError = true
+            return
+        }
+
+        isUnlockingIdentity = true
+        defer { isUnlockingIdentity = false }
+
+        do {
+            // Since Face ID was already checked at app launch,
+            // we just need to authenticate with the server
+            let result = try await AuthenticationService.shared.loginWithCyphrId(cyphrId: cyphrId)
+            if !result.success {
+                errorMessage = result.message
+                showError = true
+            }
+        } catch let authError as WelcomeAuthError {
+            errorMessage = authError.localizedDescription
+            showError = true
+        } catch let authError as AuthenticationServiceError {
+            // login handles auto-rebind for fingerprint mismatch internally.
+            if case .userNotFound = authError {
+                pendingLoginCyphrId = cyphrId
+                showingSignIn = true
+                return
+            }
+            errorMessage = authError.localizedDescription
+            showError = true
+        } catch let laError as LAError {
+            switch laError.code {
+            case .biometryNotAvailable:
+                errorMessage = "Face ID/Touch ID is not available. Please use your recovery phrase."
+            case .biometryNotEnrolled:
+                errorMessage = "No biometric data enrolled. Please use your recovery phrase."
+            case .userCancel:
+                errorMessage = nil
+            default:
+                errorMessage = "Biometric authentication failed. Please use your recovery phrase."
+            }
+            if errorMessage != nil { showError = true }
+        } catch {
+            // Surface actual error for easier diagnostics
+            errorMessage = error.localizedDescription
+            showError = true
+        }
     }
 }
+
+// MARK: - Auth Error Types
+
+enum WelcomeAuthError: LocalizedError {
+    case biometricAuthenticationFailed
+    case noStoredIdentity
+    case loginFailed(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .biometricAuthenticationFailed:
+            return "Biometric authentication failed"
+        case .noStoredIdentity:
+            return "No identity found on this device"
+        case .loginFailed(let message):
+            return "Login failed: \(message)"
+        }
+    }
+}
+
+// MARK: - Preview
 
 struct WelcomeView_Previews: PreviewProvider {
     static var previews: some View {
         WelcomeView()
+            .environmentObject(AuthenticationManager())
     }
-}
-
-private extension String {
-    var nonEmpty: String? { isEmpty ? nil : self }
 }
